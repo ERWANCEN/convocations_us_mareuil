@@ -30,7 +30,7 @@ Prototype réalisé dans le cadre d'un projet école (dossier fictif « US Mareu
 
 10. Sous la liste, « Modifier la liste des joueurs » (replié par défaut) permet d'ajouter un joueur (prénom seulement) ou d'en retirer un. Le retrait se fait en deux touchers : « Retirer », puis « Confirmer ».
 11. Un joueur ajouté est convoqué d'office (dans la limite de 14) et porte le badge « nouveau » plutôt que « peu présent ».
-12. La liste modifiée est gardée sur le téléphone (une clé par équipe). Le bouton « Remettre la liste d'origine » revient à la liste du code.
+12. Seules les modifications du coach (prénoms ajoutés ou retirés) sont gardées sur le téléphone, une clé par équipe. Elles s'appliquent par-dessus `donnees.js` : un joueur ajouté plus tard dans ce fichier apparaît aussi. Un joueur du fichier retiré par erreur, puis rajouté, retrouve son historique. Le bouton « Remettre la liste d'origine » efface ces modifications.
 
 Le coach garde la main : il peut cocher ou décocher un joueur et modifier le message avant l'envoi.
 
@@ -48,7 +48,11 @@ Ouvrir `index.html` dans un navigateur, ou activer GitHub Pages sur le dépôt (
 
 ## Données
 
-Les données sont écrites en haut du script (`EQUIPES`). L'équipe U13 reprend les données du dossier ; l'équipe U15 est une démo fictive. Dans une version réelle, elles viendraient de l'export de l'appli de présences et du calendrier de la ligue.
+Les équipes, les joueurs, les matchs (`EQUIPES`) et le suivi des forfaits (`FORFAITS`) sont dans le fichier `donnees.js`, à côté de `index.html`. Pour ajouter une équipe ou un match, il suffit de modifier ce fichier avec un éditeur de texte : le mode d'emploi est écrit en tête du fichier. Pas besoin de toucher à `index.html`.
+
+Le fichier est chargé par une balise `<script src>`, et non lu avec `fetch` : la page s'ouvre donc toujours par un double-clic. S'il manque une virgule ou un guillemet dans `donnees.js`, la page affiche un message d'erreur clair au lieu de rester blanche.
+
+L'équipe U13 reprend les données du dossier ; les équipes U15 sont des démos fictives. Dans une version réelle, ces données viendraient de l'export de l'appli de présences et du calendrier de la ligue.
 
 ## Limites restantes
 
@@ -56,7 +60,7 @@ Les données sont écrites en haut du script (`EQUIPES`). L'équipe U13 reprend 
 - Le coach reporte lui-même les réponses reçues sur WhatsApp : l'outil ne lit pas les messages.
 - La liste modifiée par un coach reste sur son téléphone : elle n'est pas partagée avec le club.
 - Un joueur ajouté n'a pas d'historique de présence (0 entraînement) : il ne peut pas être marqué absent depuis la page.
-- Les équipes et les matchs sont écrits dans le code (`index.html`).
+- Les équipes et les matchs se modifient à la main dans `donnees.js` : il faut un ordinateur, et une faute de frappe bloque la page (avec un message qui l'explique).
 - Pas encore de gestion du gardien ni de la rotation des joueurs peu convoqués.
 - Le compteur de forfaits de la saison est une démonstration : le coach ne peut pas encore déclarer un forfait.
 - Hors périmètre : envoi automatique dans WhatsApp (API payante et serveur nécessaire), connexion réelle à l'appli de présences et au calendrier de la ligue (il faudrait leurs API), accès protégé par mot de passe (un vrai contrôle d'accès demande un serveur).
