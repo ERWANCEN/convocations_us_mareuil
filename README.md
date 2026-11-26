@@ -26,6 +26,12 @@ Prototype réalisé dans le cadre d'un projet école (dossier fictif « US Mareu
 8. Le bouton « Générer la relance » prépare un message WhatsApp court qui ne cite que les joueurs « En attente ». Les « Non » ne sont jamais nommés.
 9. Les réponses et la liste des convoqués sont gardées sur le téléphone (`localStorage`, une clé par match). Si le navigateur bloque ce stockage, la page fonctionne quand même, sans mémoire.
 
+**Gestion de la liste des joueurs.**
+
+10. Sous la liste, « Modifier la liste des joueurs » (replié par défaut) permet d'ajouter un joueur (prénom seulement) ou d'en retirer un. Le retrait se fait en deux touchers : « Retirer », puis « Confirmer ».
+11. Un joueur ajouté est convoqué d'office (dans la limite de 14) et porte le badge « nouveau » plutôt que « peu présent ».
+12. La liste modifiée est gardée sur le téléphone (une clé par équipe). Le bouton « Remettre la liste d'origine » revient à la liste du code.
+
 Le coach garde la main : il peut cocher ou décocher un joueur et modifier le message avant l'envoi.
 
 ## Choix techniques
@@ -48,6 +54,8 @@ Les données sont écrites en haut du script (`EQUIPES`). L'équipe U13 reprend 
 
 - Les réponses des parents sont gardées sur le téléphone du coach uniquement. Elles ne sont pas partagées avec un autre appareil ni avec la secrétaire.
 - Le coach reporte lui-même les réponses reçues sur WhatsApp : l'outil ne lit pas les messages.
+- La liste modifiée par un coach reste sur son téléphone : elle n'est pas partagée avec le club.
+- Un joueur ajouté n'a pas d'historique de présence (0 entraînement) : il ne peut pas être marqué absent depuis la page.
 - Les équipes et les matchs sont écrits dans le code (`index.html`).
 - Pas encore de gestion du gardien ni de la rotation des joueurs peu convoqués.
 - Le compteur de forfaits de la saison est une démonstration : le coach ne peut pas encore déclarer un forfait.
