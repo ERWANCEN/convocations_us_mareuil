@@ -37,6 +37,14 @@ Prototype réalisé dans le cadre d'un projet école (dossier fictif « US Mareu
 13. Un joueur peut être indiqué comme gardien dans `donnees.js` (`poste: "gardien"`). Il porte le badge « gardien ». Si aucun gardien n'est convoqué, ou s'il a répondu « Non », une alerte **orange** s'affiche, en plus de l'alerte de forfait.
 14. Un joueur resté 3 matchs de suite sans convocation (`matchsSansConvocation` dans `donnees.js`) porte le badge « à faire jouer ». Il est placé en tête de liste et proposé en priorité. Le but est de lutter contre le décrochage : 22 % des licenciés ne reprennent pas leur licence. Pour ce joueur, le badge « peu présent » n'est pas affiché.
 
+**Indicateur des forfaits alimenté par le coach.**
+
+15. Le bouton « Déclarer un forfait » ouvre un petit panneau, avec l'équipe du match en cours et la date du jour déjà remplies. Il suffit de toucher « Confirmer le forfait ». Pas de fenêtre du navigateur, et une date future est refusée.
+16. Le compteur de la saison, les amendes, la jauge et la projection en fin de saison se mettent à jour aussitôt. La projection se calcule à partir de la date de début de saison (`debutSaison` dans `donnees.js`).
+17. Un mini-historique montre les 5 derniers forfaits déclarés (équipe et date). Un forfait saisi par erreur se retire en deux touchers : « Retirer », puis « Confirmer ».
+18. La section féminine a son propre compteur, car la subvention la suit à part.
+19. Les forfaits déclarés sont gardés sur le téléphone (`localStorage`). Le compteur de départ (`cetteSaison` dans `donnees.js`) reste un chiffre de démonstration.
+
 Le coach garde la main : il peut cocher ou décocher un joueur et modifier le message avant l'envoi.
 
 ## Choix techniques
@@ -67,5 +75,5 @@ L'équipe U13 reprend les données du dossier ; les équipes U15 sont des démos
 - Un joueur ajouté n'a pas d'historique de présence (0 entraînement) : il ne peut pas être marqué absent depuis la page.
 - Les équipes et les matchs se modifient à la main dans `donnees.js` : il faut un ordinateur, et une faute de frappe bloque la page (avec un message qui l'explique).
 - Le compteur `matchsSansConvocation` et le poste de gardien se mettent à jour à la main dans `donnees.js` : la page ne compte pas encore les matchs joués.
-- Le compteur de forfaits de la saison est une démonstration : le coach ne peut pas encore déclarer un forfait.
+- Les forfaits déclarés restent sur le téléphone qui les a saisis : il n'y a pas de total partagé entre coachs. Pour un compteur fiable, une seule personne (la secrétaire, par exemple) devrait les déclarer. Un vrai total partagé demanderait un serveur.
 - Hors périmètre : envoi automatique dans WhatsApp (API payante et serveur nécessaire), connexion réelle à l'appli de présences et au calendrier de la ligue (il faudrait leurs API), accès protégé par mot de passe (un vrai contrôle d'accès demande un serveur).
