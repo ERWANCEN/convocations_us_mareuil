@@ -36,13 +36,13 @@ Le prototype tient en deux fichiers : `index.html` (la page et toute la logique)
 |---|---|---|
 | P1 · Suivre les confirmations | #4 | Boutons Oui / Non / En attente (grisés si le joueur est décoché), alerte rouge / orange / verte selon les réponses, bouton « Générer la relance » |
 | Hors backlog · Gestion de la liste | #4 | Ajouter ou retirer un joueur depuis la page (2 touchers), « Remettre la liste d'origine » |
+| Hors backlog · Absent / disponible | `feature/absent-disponible` | Bouton « Absent » / « Disponible » par prénom dans le volet « Modifier la liste » (1 toucher, sans motif) |
 | P2 · Sortir les données du code | #5 | `donnees.js` avec son mode d'emploi en tête, message d'erreur clair si le fichier manque ou est mal écrit |
 | P3 · Gardien et rotation | #6 | `poste: "gardien"` (alerte orange), `matchsSansConvocation` (badge « à faire jouer » et priorité dès 3) |
 | P4 · Forfaits déclarés par le coach | #7 | « Déclarer un forfait », mini-historique, compteur de la section féminine, projection calculée depuis `debutSaison` |
 | P5 · Accessibilité et finitions | #8 | Contraste AA, textes de 18 px minimum, clavier, message pour une équipe sans match, « Voir tout le message » |
 
 ### Pistes ouvertes (non priorisées : à valider avec l'utilisateur avant de coder)
-- Marquer un joueur « absent » ou « disponible » depuis la page. Aujourd'hui, seul `donnees.js` le permet.
 - Faire tenir compte des réponses « Non » dans les « équipes à risque » de l'indicateur.
 - Réduire le nombre d'arrêts au clavier (106 aujourd'hui) avec une navigation aux flèches dans chaque groupe Oui / Non / En attente.
 - Mettre à jour `matchsSansConvocation` automatiquement. Aujourd'hui, il se modifie à la main dans `donnees.js`.
@@ -59,7 +59,7 @@ Le prototype tient en deux fichiers : `index.html` (la page et toute la logique)
 - **`donnees.js`** : `FORFAITS` et `EQUIPES`. Champs facultatifs d'un joueur : `absent`, `poste`, `matchsSansConvocation`. Champs facultatifs d'une équipe : `feminin`, `nouvelle`, `nbSeances`. L'`id` de chaque match doit être unique dans tout le club.
 - **Clés `localStorage`** :
   - `usm-suivi-<id du match>` : convoqués et réponses des parents ;
-  - `usm-modifs-<nom de l'équipe>` : ajouts et retraits du coach, appliqués par-dessus `donnees.js` ;
+  - `usm-modifs-<nom de l'équipe>` : ajouts, retraits, absents et disponibles notés par le coach (`ajoutes`, `retires`, `absents`, `disponibles`), appliqués par-dessus `donnees.js` ;
   - `usm-forfaits` : forfaits déclarés.
 
 ## Méthode de travail

@@ -55,7 +55,12 @@
   .ajout input { flex: 1; min-width: 0; font-size: 18px; padding: 12px; border: 1px solid var(--bord-champ); border-radius: 8px; }
   .ajout button, .gestion-ligne button { width: auto; min-height: 48px; padding: 8px 16px; font-size: 18px; }
   .ajout button { background: var(--vert); color: #fff; }
-  .gestion-ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #eee; }
+  .gestion-ligne { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #eee; }
+  .gestion-ligne .prenom { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .gestion-ligne button { flex: none; padding: 8px 12px; }
+  .gestion-ligne .prenom.absent { text-decoration: line-through; color: #6b6a66; }
+  .absence { background: #fff; color: #222; border: 2px solid var(--bord-champ); }
+  .absence.revenir { color: var(--vert); border-color: var(--vert); }
   .retirer { background: #fff; color: var(--rouge); border: 2px solid var(--rouge); }
   .retirer.confirmer { background: var(--rouge); color: #fff; }
   #remettre { margin-top: 12px; }
@@ -125,6 +130,7 @@
     <details class="gestion" id="gestion">
       <summary id="titre-gestion">Modifier la liste des joueurs</summary>
       <form id="form-ajout">
+        <p class="aide">« Absent » retire de la convocation, sans motif. « Disponible » remet dans la liste.</p>
         <label class="champ" for="nouveau-joueur">Prénom à ajouter (prénom seulement)</label>
         <div class="ajout">
           <input id="nouveau-joueur" type="text" maxlength="30" autocomplete="off">
@@ -190,11 +196,12 @@ function pluriel(n, mot) { return n > 1 ? mot + "s" : mot; }
 function esc(texte) { return String(texte).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
 // Liste des joueurs modifiable par le coach. On mémorise seulement ses modifications
-// (prénoms ajoutés, prénoms retirés), une clé par équipe. Elles s'appliquent par-dessus
-// donnees.js : un joueur ajouté plus tard dans donnees.js apparaît donc aussi.
+// (prénoms ajoutés, retirés, marqués absents ou de nouveau disponibles), une clé par équipe.
+// Elles s'appliquent par-dessus donnees.js : un joueur ajouté plus tard dans donnees.js apparaît donc aussi.
 const CLE_MODIFS = "usm-modifs-";    // + nom de l'équipe
 const JOUEURS_ORIGINE = {};          // listes de donnees.js
-const MODIFS = {};                   // nom de l'équipe -> { ajoutes: [prénoms], retires: [prénoms] }
+const MODIFS = {};                   // nom de l'équipe -> { ajoutes, retires, absents, disponibles } (listes de prénoms)
+const modifsVides = () => ({ ajoutes: [], retires: [], absents: [], disponibles: [] });
 let aRetirer = null;                 // prénom en attente de confirmation de retrait
 
 const memeNom = (a, b) => a.toLowerCase() === b.toLowerCase();
@@ -208,7 +215,8 @@ function chargerListes() {
     let lu = {};
     try { lu = JSON.parse(localStorage.getItem(CLE_MODIFS + nomEquipe)) || {}; }
     catch { /* stockage indisponible ou illisible : aucune modification */ }
-    MODIFS[nomEquipe] = { ajoutes: prenomsValides(lu.ajoutes), retires: prenomsValides(lu.retires) };
+    MODIFS[nomEquipe] = { ajoutes: prenomsValides(lu.ajoutes), retires: prenomsValides(lu.retires),
+                          absents: prenomsValides(lu.absents), disponibles: prenomsValides(lu.disponibles) };
     appliquerModifs(nomEquipe);
   });
 }
@@ -220,6 +228,11 @@ function appliquerModifs(nomEquipe) {
   m.ajoutes.forEach(nom => {
     if (!liste.some(j => memeNom(j.nom, nom))) liste.push({ nom, presences: 0, absent: false, ajoute: true });
   });
+  // Absences notées par le coach (sans motif), par-dessus celles de donnees.js
+  liste.forEach(j => {
+    if (m.absents.some(n => memeNom(n, j.nom))) j.absent = true;
+    if (m.disponibles.some(n => memeNom(n, j.nom))) j.absent = false;
+  });
   EQUIPES[nomEquipe].joueurs = liste;
 }
 function enregistrerModifs() {
@@ -227,8 +240,7 @@ function enregistrerModifs() {
   catch { /* stockage indisponible : la modification vaut jusqu'à la fermeture de la page */ }
 }
 function listeModifiee() {
-  const m = MODIFS[$("equipe").value];
-  return m.ajoutes.length > 0 || m.retires.length > 0;
+  return Object.values(MODIFS[$("equipe").value]).some(l => l.length > 0);
 }
 
 function ajouterJoueur(evenement) {
@@ -269,6 +281,8 @@ function retirerJoueur(nom) {
   const m = MODIFS[nomEquipe];
   if (m.ajoutes.some(n => memeNom(n, nom))) m.ajoutes = m.ajoutes.filter(n => !memeNom(n, nom));
   else m.retires.push(nom);
+  m.absents = m.absents.filter(n => !memeNom(n, nom));
+  m.disponibles = m.disponibles.filter(n => !memeNom(n, nom));
   appliquerModifs(nomEquipe);
   selection.delete(nom);
   delete statuts[nom];
@@ -281,9 +295,43 @@ function retirerJoueur(nom) {
   $("nouveau-joueur").focus();          // le bouton retiré a disparu : on garde le focus dans le volet
 }
 
+// Absent / disponible : un seul toucher, car on peut revenir en arrière aussitôt
+let focusAbsence = null;             // prénom dont le bouton doit garder le focus après l'affichage
+function basculerAbsence(nom) {
+  const nomEquipe = $("equipe").value;
+  const equipe = equipeCourante();
+  const m = MODIFS[nomEquipe];
+  const joueur = equipe.joueurs.find(j => j.nom === nom);
+  if (!joueur) return;
+  const devientAbsent = !joueur.absent;
+  const origine = JOUEURS_ORIGINE[nomEquipe].find(j => memeNom(j.nom, nom));
+  const absentAuDepart = !!(origine && origine.absent);
+  m.absents = m.absents.filter(n => !memeNom(n, nom));
+  m.disponibles = m.disponibles.filter(n => !memeNom(n, nom));
+  if (devientAbsent !== absentAuDepart) (devientAbsent ? m.absents : m.disponibles).push(nom);
+  appliquerModifs(nomEquipe);
+  const e = equipe.feminin ? "e" : "";
+  let convoque = false;
+  if (devientAbsent) {
+    selection.delete(nom);
+    delete statuts[nom];
+  } else if (selection.size < MAXIMUM_CONVOQUES) {
+    selection.add(nom);
+    convoque = true;
+  }
+  enregistrerModifs();
+  enregistrerSuivi();
+  $("retour-gestion").textContent = devientAbsent
+    ? `${nom} noté${e} absent${e}. ${equipe.feminin ? "Elle" : "Il"} n'est plus convoqué${e}.`
+    : `${nom} de nouveau disponible${convoque ? ` et convoqué${e}` : `. La liste est pleine (${MAXIMUM_CONVOQUES}) : cochez si besoin`}.`;
+  focusAbsence = nom;
+  afficherJoueurs();
+  afficherIndicateur();
+}
+
 function remettreListe() {
   const nomEquipe = $("equipe").value;
-  MODIFS[nomEquipe] = { ajoutes: [], retires: [] };
+  MODIFS[nomEquipe] = modifsVides();
   appliquerModifs(nomEquipe);
   try { localStorage.removeItem(CLE_MODIFS + nomEquipe); } catch { /* rien à faire */ }
   $("retour-gestion").textContent = "Liste d'origine remise.";
@@ -297,12 +345,20 @@ function afficherGestion() {
   $("liste-gestion").innerHTML = [...equipe.joueurs]
     .sort((a, b) => a.nom.localeCompare(b.nom, "fr"))
     .map(j => `<div class="gestion-ligne">
-      <span>${esc(j.nom)}</span>
+      <span class="prenom ${j.absent ? "absent" : ""}">${esc(j.nom)}</span>
+      <button type="button" class="absence ${j.absent ? "revenir" : ""}" data-nom="${esc(j.nom)}"
+        aria-label="Marquer ${esc(j.nom)} ${j.absent ? "disponible" : "absent" + (equipe.feminin ? "e" : "")}">${j.absent ? "Disponible" : "Absent" + (equipe.feminin ? "e" : "")}</button>
       <button type="button" class="retirer ${aRetirer === j.nom ? "confirmer" : ""}" data-nom="${esc(j.nom)}" aria-label="${aRetirer === j.nom ? "Confirmer le retrait de" : "Retirer"} ${esc(j.nom)}">${aRetirer === j.nom ? "Confirmer" : "Retirer"}</button>
     </div>`).join("");
   document.querySelectorAll("#liste-gestion .retirer").forEach(b => b.addEventListener("click", () => retirerJoueur(b.dataset.nom)));
+  document.querySelectorAll("#liste-gestion .absence").forEach(b => b.addEventListener("click", () => basculerAbsence(b.dataset.nom)));
   const aConfirmer = document.querySelector("#liste-gestion .confirmer");
   if (aConfirmer) aConfirmer.focus();   // garder le focus clavier sur le bouton « Confirmer »
+  if (focusAbsence) {                   // garder le focus sur le bouton Absent / Disponible qu'on vient de toucher
+    const b = [...document.querySelectorAll("#liste-gestion .absence")].find(x => x.dataset.nom === focusAbsence);
+    if (b) b.focus();
+    focusAbsence = null;
+  }
   $("remettre").hidden = !listeModifiee();
 }
 
