@@ -32,6 +32,11 @@ Prototype réalisé dans le cadre d'un projet école (dossier fictif « US Mareu
 11. Un joueur ajouté est convoqué d'office (dans la limite de 14) et porte le badge « nouveau » plutôt que « peu présent ».
 12. Seules les modifications du coach (prénoms ajoutés ou retirés) sont gardées sur le téléphone, une clé par équipe. Elles s'appliquent par-dessus `donnees.js` : un joueur ajouté plus tard dans ce fichier apparaît aussi. Un joueur du fichier retiré par erreur, puis rajouté, retrouve son historique. Le bouton « Remettre la liste d'origine » efface ces modifications.
 
+**Gardien et rotation.**
+
+13. Un joueur peut être indiqué comme gardien dans `donnees.js` (`poste: "gardien"`). Il porte le badge « gardien ». Si aucun gardien n'est convoqué, ou s'il a répondu « Non », une alerte **orange** s'affiche, en plus de l'alerte de forfait.
+14. Un joueur resté 3 matchs de suite sans convocation (`matchsSansConvocation` dans `donnees.js`) porte le badge « à faire jouer ». Il est placé en tête de liste et proposé en priorité. Le but est de lutter contre le décrochage : 22 % des licenciés ne reprennent pas leur licence. Pour ce joueur, le badge « peu présent » n'est pas affiché.
+
 Le coach garde la main : il peut cocher ou décocher un joueur et modifier le message avant l'envoi.
 
 ## Choix techniques
@@ -61,6 +66,6 @@ L'équipe U13 reprend les données du dossier ; les équipes U15 sont des démos
 - La liste modifiée par un coach reste sur son téléphone : elle n'est pas partagée avec le club.
 - Un joueur ajouté n'a pas d'historique de présence (0 entraînement) : il ne peut pas être marqué absent depuis la page.
 - Les équipes et les matchs se modifient à la main dans `donnees.js` : il faut un ordinateur, et une faute de frappe bloque la page (avec un message qui l'explique).
-- Pas encore de gestion du gardien ni de la rotation des joueurs peu convoqués.
+- Le compteur `matchsSansConvocation` et le poste de gardien se mettent à jour à la main dans `donnees.js` : la page ne compte pas encore les matchs joués.
 - Le compteur de forfaits de la saison est une démonstration : le coach ne peut pas encore déclarer un forfait.
 - Hors périmètre : envoi automatique dans WhatsApp (API payante et serveur nécessaire), connexion réelle à l'appli de présences et au calendrier de la ligue (il faudrait leurs API), accès protégé par mot de passe (un vrai contrôle d'accès demande un serveur).

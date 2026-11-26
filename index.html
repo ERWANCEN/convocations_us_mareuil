@@ -26,11 +26,13 @@
   .badge { font-size: 13px; padding: 2px 8px; border-radius: 10px; background: var(--orange-clair); color: #633806; }
   .badge.abs { background: #eee; color: #555; }
   .badge.new { background: #eeedfe; color: #3c3489; }
+  .badge.gardien { background: #e6f1fb; color: #0c447c; }
+  .badge.jouer { background: var(--vert-clair); color: #085041; font-weight: 600; }
   .alerte { padding: 14px; border-radius: 10px; font-weight: 600; margin-bottom: 12px; }
   .alerte.ko { background: var(--rouge-clair); color: var(--rouge); border: 1px solid var(--rouge); }
   .alerte.ok { background: var(--vert-clair); color: var(--vert); border: 1px solid var(--vert); }
   .alerte.info { background: #eeedfe; color: #3c3489; border: 1px solid #534ab7; font-weight: 400; }
-  .alerte.attente { background: var(--orange-clair); color: var(--orange); border: 1px solid var(--orange); }
+  .alerte.attente, .alerte.orange { background: var(--orange-clair); color: var(--orange); border: 1px solid var(--orange); }
   .alerte .detail { display: block; font-weight: 400; margin-top: 4px; }
   /* Réponses des parents : 3 gros boutons sous chaque joueur convoqué */
   .statuts { display: flex; gap: 8px; padding: 0 4px 10px; }
@@ -128,6 +130,7 @@
 const NB_ENTRAINEMENTS = 8;
 const MAXIMUM_CONVOQUES = 14;     // 11 titulaires + 3 remplaçants
 const SEUIL_PEU_PRESENT = 0.5;    // moins de 50 % de présence -> badge "peu présent"
+const SEUIL_A_FAIRE_JOUER = 3;    // 3 matchs de suite sans convocation -> badge "à faire jouer" et priorité
 
 // Si donnees.js est absent ou contient une erreur de frappe, on le dit clairement
 if (typeof EQUIPES === "undefined" || typeof FORFAITS === "undefined") {
@@ -298,11 +301,16 @@ function chargerMatch() {
   afficherJoueurs();
 }
 
-// Règle 2 : retirer les absents, trier par présence, garder les plus présents
+// Rotation : un joueur resté 3 matchs sans convocation passe en priorité (lutte contre le décrochage)
+function aFaireJouer(j) { return !j.absent && (Number(j.matchsSansConvocation) || 0) >= SEUIL_A_FAIRE_JOUER; }
+function estGardien(j) { return j.poste === "gardien"; }
+function parPriorite(a, b) { return (aFaireJouer(b) - aFaireJouer(a)) || (b.presences - a.presences); }
+
+// Règle 2 : retirer les absents, mettre en tête les « à faire jouer », puis les plus présents
 function proposerJoueurs(equipe) {
   return equipe.joueurs
     .filter(j => !j.absent)
-    .sort((a, b) => b.presences - a.presences)
+    .sort(parPriorite)
     .slice(0, MAXIMUM_CONVOQUES)
     .map(j => j.nom);
 }
@@ -347,13 +355,13 @@ function afficherJoueurs() {
   const equipe = equipeCourante();
   const n = nbSeances(equipe);
   $("titre-joueurs").textContent = equipe.feminin ? "2. Joueuses proposées" : "2. Joueurs proposés";
-  $("aide-joueurs").textContent = `Classés du plus présent au moins présent aux ${n} derniers entraînements. Les absences déclarées sont retirées. Vous pouvez cocher ou décocher. Quand les parents répondent, touchez Oui ou Non.`;
+  $("aide-joueurs").textContent = `Classés du plus présent au moins présent aux ${n} derniers entraînements, après les « à faire jouer ». Les absences déclarées sont retirées. Vous pouvez cocher ou décocher. Quand les parents répondent, touchez Oui ou Non.`;
   $("info-equipe").innerHTML = equipe.nouvelle
     ? `<div class="alerte info">Nouvelle équipe (section féminine, janvier) : seulement ${n} séances d'historique. La liste est indicative, et le badge « peu présent » n'est pas affiché pour ne pas décourager les nouvelles joueuses.</div>`
     : "";
-  const tries = [...equipe.joueurs].sort((a, b) => (!!a.absent - !!b.absent) || (b.presences - a.presences));
+  const tries = [...equipe.joueurs].sort((a, b) => (!!a.absent - !!b.absent) || parPriorite(a, b));
   $("joueurs").innerHTML = tries.map(j => {
-    const peu = !equipe.nouvelle && !j.ajoute && !j.absent && j.presences / n < SEUIL_PEU_PRESENT;
+    const peu = !equipe.nouvelle && !j.ajoute && !aFaireJouer(j) && !j.absent && j.presences / n < SEUIL_PEU_PRESENT;
     const nom = esc(j.nom);
     const boutons = j.absent ? "" : `<div class="statuts" role="group" aria-label="Réponse des parents pour ${nom}" data-nom="${nom}">
       ${STATUTS.map(([val, lib]) => `<button type="button" data-statut="${val}" aria-pressed="${statut(j.nom) === val}" ${selection.has(j.nom) ? "" : "disabled"}>${lib}</button>`).join("")}
@@ -363,6 +371,8 @@ function afficherJoueurs() {
         <input type="checkbox" data-nom="${nom}" ${selection.has(j.nom) ? "checked" : ""} ${j.absent ? "disabled" : ""}>
         <span class="nom">${nom}</span>
         ${j.absent ? '<span class="badge abs">absent' + (equipe.feminin ? "e" : "") + '</span>' : ""}
+        ${estGardien(j) ? `<span class="badge gardien">${equipe.feminin ? "gardienne" : "gardien"}</span>` : ""}
+        ${aFaireJouer(j) ? '<span class="badge jouer">à faire jouer</span>' : ""}
         ${peu ? '<span class="badge">peu présent</span>' : ""}
         ${(equipe.nouvelle || j.ajoute) && !j.absent ? `<span class="badge new">nouve${equipe.feminin ? "lle" : "au"}</span>` : ""}
         <span class="pres">${j.presences}/${n}</span>
@@ -412,6 +422,15 @@ function genererMessage() {
     $("alerte").innerHTML = `<div class="alerte attente">${nb} ${mot}s convoqué${e}s. En attente des réponses.${detail}</div>`;
   } else {
     $("alerte").innerHTML = `<div class="alerte ok">${nbOui} ${mot}s confirmé${e}s : l'équipe est complète.${detail}</div>`;
+  }
+
+  // Gardien : alerte orange (pas rouge) si aucun gardien de l'équipe n'est convoqué
+  // (ou s'ils ont tous répondu « Non »). Rien si aucun gardien n'est indiqué dans donnees.js.
+  const gardiens = equipe.joueurs.filter(estGardien);
+  if (gardiens.length && !gardiens.some(g => selection.has(g.nom) && statut(g.nom) !== "non")) {
+    const g = equipe.feminin ? "gardienne" : "gardien";
+    const situation = (j) => j.absent ? `absent${e}` : !selection.has(j.nom) ? `non convoqué${e}` : "a répondu non";
+    $("alerte").innerHTML += `<div class="alerte orange">Pas de ${g} pour ce match. Pensez à en prévoir un${e} ou à désigner un${e} remplaçant${e} dans les buts.<span class="detail">${pluriel(gardiens.length, g[0].toUpperCase() + g.slice(1))} de l'équipe : ${gardiens.map(j => `${esc(j.nom)} (${situation(j)})`).join(", ")}.</span></div>`;
   }
 
   if (enAttente.length === 0) modeMessage = "convocation";
