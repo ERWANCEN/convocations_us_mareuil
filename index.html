@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>US Mareuil · Générateur de convocations</title>
 <style>
-  :root { --vert: #0f6e56; --vert-clair: #e1f5ee; --rouge: #a32d2d; --rouge-clair: #fcebeb; --gris: #5f5e5a; --bord: #d3d1c7; }
+  :root { --vert: #0f6e56; --vert-clair: #e1f5ee; --rouge: #a32d2d; --rouge-clair: #fcebeb; --orange: #854f0b; --orange-clair: #faeeda; --gris: #5f5e5a; --bord: #d3d1c7; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 18px; line-height: 1.5; background: #f7f6f2; color: #222; }
   header { background: var(--vert); color: #fff; padding: 16px 20px; }
@@ -22,17 +22,26 @@
   .joueur .nom { flex: 1; font-size: 18px; }
   .joueur .pres { font-size: 15px; color: var(--gris); }
   .joueur.absent .nom { text-decoration: line-through; color: #999; }
-  .badge { font-size: 13px; padding: 2px 8px; border-radius: 10px; background: #faeeda; color: #633806; }
+  .badge { font-size: 13px; padding: 2px 8px; border-radius: 10px; background: var(--orange-clair); color: #633806; }
   .badge.abs { background: #eee; color: #555; }
+  .badge.new { background: #eeedfe; color: #3c3489; }
   .alerte { padding: 14px; border-radius: 10px; font-weight: 600; margin-bottom: 12px; }
   .alerte.ko { background: var(--rouge-clair); color: var(--rouge); border: 1px solid var(--rouge); }
   .alerte.ok { background: var(--vert-clair); color: var(--vert); border: 1px solid var(--vert); }
+  .alerte.info { background: #eeedfe; color: #3c3489; border: 1px solid #534ab7; font-weight: 400; }
   textarea { width: 100%; min-height: 420px; font-size: 17px; font-family: inherit; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; }
   .boutons { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
   button, a.btn { display: block; width: 100%; text-align: center; font-size: 19px; font-weight: 600; padding: 16px; border-radius: 10px; border: none; cursor: pointer; text-decoration: none; }
   .principal { background: #25d366; color: #073b1c; }
   .secondaire { background: #fff; color: var(--vert); border: 2px solid var(--vert) !important; }
   .aide { font-size: 15px; color: var(--gris); margin: 4px 0 0; }
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi { border: 1px solid var(--bord); border-radius: 10px; padding: 10px 12px; }
+  .kpi .val { font-size: 26px; font-weight: 700; }
+  .kpi .lib { font-size: 14px; color: var(--gris); }
+  .jauge { height: 14px; background: #eee; border-radius: 7px; overflow: hidden; margin: 12px 0 6px; }
+  .jauge div { height: 100%; }
+  .risques { margin: 10px 0 0; padding-left: 20px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -43,6 +52,11 @@
 
 <main>
   <section>
+    <h2>Indicateur des forfaits (objectif subvention)</h2>
+    <div id="indicateur"></div>
+  </section>
+
+  <section>
     <h2>1. Mon équipe et mon match</h2>
     <label class="champ" for="equipe">Équipe</label>
     <select id="equipe"></select>
@@ -51,8 +65,9 @@
   </section>
 
   <section>
-    <h2>2. Joueurs proposés</h2>
-    <p class="aide">Classés du plus présent au moins présent aux 8 derniers entraînements. Les absents déclarés sont retirés. Vous pouvez cocher ou décocher.</p>
+    <h2 id="titre-joueurs">2. Joueurs proposés</h2>
+    <p class="aide" id="aide-joueurs"></p>
+    <div id="info-equipe"></div>
     <div id="joueurs"></div>
   </section>
 
@@ -74,13 +89,23 @@
 // seulement "absent", sans le motif.
 // ------------------------------------------------------------------
 const NB_ENTRAINEMENTS = 8;
-const MINIMUM_JOUEURS = 11;
 const MAXIMUM_CONVOQUES = 14;     // 11 titulaires + 3 remplaçants
 const SEUIL_PEU_PRESENT = 0.5;    // moins de 50 % de présence -> badge "peu présent"
 
+// Suivi des forfaits demandé par la subvention.
+// 35 forfaits la saison dernière -> objectif : -50 %. Chiffres de la saison en cours = démo.
+const FORFAITS = {
+  saisonDerniere: 35,
+  objectif: 17,
+  semainesSaison: 40,
+  semainesEcoulees: 12,          // de septembre à fin novembre
+  cetteSaison: 9,                // forfaits déjà subis cette saison (démo)
+  amende: 50
+};
+
 const EQUIPES = {
   "U13": {
-    coach: "Samir",
+    coach: "Samir", minimum: 11,
     joueurs: [
       { nom: "Adam",   presences: 8 },
       { nom: "Bilal",  presences: 6 },
@@ -101,7 +126,7 @@ const EQUIPES = {
     ]
   },
   "U15 (démo fictive)": {
-    coach: "Le coach",
+    coach: "Le coach", minimum: 11,
     joueurs: [
       { nom: "Noah", presences: 7 }, { nom: "Rayan", presences: 6 },
       { nom: "Sacha", presences: 2, absent: true }, { nom: "Tom", presences: 5 },
@@ -111,6 +136,22 @@ const EQUIPES = {
     ],
     matchs: [
       { id: "u15-demo", libelle: "Dimanche 14h · à domicile", jour: "dimanche", heure: "14h", lieu: "Mareuil (domicile)", rdv: "13h au stade" }
+    ]
+  },
+  // Nouvelle section féminine exigée par la subvention (démarrage en janvier)
+  "U15 F · section féminine (démo fictive)": {
+    coach: "La coach", minimum: 11, feminin: true, nouvelle: true,
+    joueurs: [
+      { nom: "Inès", presences: 4 }, { nom: "Léa", presences: 4 },
+      { nom: "Sarah", presences: 3 }, { nom: "Maëlys", presences: 4 },
+      { nom: "Nour", presences: 2 }, { nom: "Chloé", presences: 3 },
+      { nom: "Yasmine", presences: 4 }, { nom: "Emma", presences: 1, absent: true },
+      { nom: "Lina", presences: 2 }, { nom: "Jade", presences: 3 },
+      { nom: "Aya", presences: 4 }, { nom: "Rose", presences: 1 }
+    ],
+    nbSeances: 4,                 // nouvelle équipe : seulement 4 séances découverte
+    matchs: [
+      { id: "u15f-plateau", libelle: "Samedi 17 janvier 14h · plateau à domicile", jour: "samedi 17 janvier", heure: "14h", lieu: "Mareuil (domicile)", rdv: "13h15 au stade" }
     ]
   }
 };
@@ -123,6 +164,7 @@ let selection = new Set();
 
 function equipeCourante() { return EQUIPES[$("equipe").value]; }
 function matchCourant() { return equipeCourante().matchs.find(m => m.id === $("match").value); }
+function nbSeances(equipe) { return equipe.nbSeances || NB_ENTRAINEMENTS; }
 
 // Règle 2 : retirer les absents, trier par présence, garder les plus présents
 function proposerJoueurs(equipe) {
@@ -131,6 +173,32 @@ function proposerJoueurs(equipe) {
     .sort((a, b) => b.presences - a.presences)
     .slice(0, MAXIMUM_CONVOQUES)
     .map(j => j.nom);
+}
+
+// Indicateur forfaits : où en est le club par rapport à l'objectif de la subvention ?
+function afficherIndicateur() {
+  const f = FORFAITS;
+  const projection = Math.round(f.cetteSaison / f.semainesEcoulees * f.semainesSaison);
+  const enRetard = projection > f.objectif;
+  const pct = Math.min(100, Math.round(f.cetteSaison / f.objectif * 100));
+  const aRisque = Object.entries(EQUIPES)
+    .filter(([, e]) => e.joueurs.filter(j => !j.absent).length < e.minimum)
+    .map(([nom, e]) => `${nom} : ${e.joueurs.filter(j => !j.absent).length}/${e.minimum}`);
+
+  $("indicateur").innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><div class="val">${f.cetteSaison} / ${f.objectif}</div><div class="lib">forfaits cette saison / objectif max</div></div>
+      <div class="kpi"><div class="val">${f.cetteSaison * f.amende} €</div><div class="lib">d'amendes déjà payées</div></div>
+    </div>
+    <div class="jauge" aria-label="Forfaits utilisés par rapport à l'objectif"><div style="width:${pct}%;background:${enRetard ? "var(--rouge)" : "var(--vert)"}"></div></div>
+    <div class="alerte ${enRetard ? "ko" : "ok"}">
+      ${enRetard
+        ? `Au rythme actuel : ${projection} forfaits en fin de saison. L'objectif de ${f.objectif} (−50 % par rapport à ${f.saisonDerniere}) n'est pas tenu. La subvention est en jeu.`
+        : `Au rythme actuel : ${projection} forfaits en fin de saison. L'objectif de ${f.objectif} est tenu.`}
+    </div>
+    <strong>Équipes à risque pour le prochain match :</strong>
+    ${aRisque.length ? `<ul class="risques">${aRisque.map(r => `<li>${r} joueurs disponibles</li>`).join("")}</ul>` : `<p class="aide">Aucune.</p>`}
+    <p class="aide">Chiffres de la saison en cours : démonstration.</p>`;
 }
 
 function remplirEquipes() {
@@ -146,15 +214,22 @@ function remplirMatchs() {
 
 function afficherJoueurs() {
   const equipe = equipeCourante();
+  const n = nbSeances(equipe);
+  $("titre-joueurs").textContent = equipe.feminin ? "2. Joueuses proposées" : "2. Joueurs proposés";
+  $("aide-joueurs").textContent = `Classés du plus présent au moins présent aux ${n} derniers entraînements. Les absences déclarées sont retirées. Vous pouvez cocher ou décocher.`;
+  $("info-equipe").innerHTML = equipe.nouvelle
+    ? `<div class="alerte info">Nouvelle équipe (section féminine, janvier) : seulement ${n} séances d'historique. La liste est indicative, et le badge « peu présent » n'est pas affiché pour ne pas décourager les nouvelles joueuses.</div>`
+    : "";
   const tries = [...equipe.joueurs].sort((a, b) => (!!a.absent - !!b.absent) || (b.presences - a.presences));
   $("joueurs").innerHTML = tries.map(j => {
-    const peu = !j.absent && j.presences / NB_ENTRAINEMENTS < SEUIL_PEU_PRESENT;
+    const peu = !equipe.nouvelle && !j.absent && j.presences / n < SEUIL_PEU_PRESENT;
     return `<label class="joueur ${j.absent ? "absent" : ""}">
       <input type="checkbox" data-nom="${j.nom}" ${selection.has(j.nom) ? "checked" : ""} ${j.absent ? "disabled" : ""}>
       <span class="nom">${j.nom}</span>
-      ${j.absent ? '<span class="badge abs">absent</span>' : ""}
+      ${j.absent ? '<span class="badge abs">absent' + (equipe.feminin ? "e" : "") + '</span>' : ""}
       ${peu ? '<span class="badge">peu présent</span>' : ""}
-      <span class="pres">${j.presences}/${NB_ENTRAINEMENTS}</span>
+      ${equipe.nouvelle && !j.absent ? '<span class="badge new">nouvelle</span>' : ""}
+      <span class="pres">${j.presences}/${n}</span>
     </label>`;
   }).join("");
   document.querySelectorAll("#joueurs input").forEach(cb => cb.addEventListener("change", () => {
@@ -164,16 +239,17 @@ function afficherJoueurs() {
   genererMessage();
 }
 
-// Règle 3 : message WhatsApp + alerte si moins de 11 joueurs
+// Règle 3 : message WhatsApp + alerte si moins de joueurs que le minimum
 function genererMessage() {
   const equipe = equipeCourante();
   const match = matchCourant();
   const convoques = equipe.joueurs.filter(j => selection.has(j.nom)).sort((a, b) => b.presences - a.presences).map(j => j.nom);
   const nb = convoques.length;
+  const mot = equipe.feminin ? "joueuse" : "joueur";
 
-  $("alerte").innerHTML = nb < MINIMUM_JOUEURS
-    ? `<div class="alerte ko">Attention : seulement ${nb} joueur(s) sur ${MINIMUM_JOUEURS} minimum. Risque de forfait (amende 50 €). Pensez à appeler des joueurs d'une autre équipe.</div>`
-    : `<div class="alerte ok">${nb} joueurs convoqués : l'équipe est complète.</div>`;
+  $("alerte").innerHTML = nb < equipe.minimum
+    ? `<div class="alerte ko">Attention : seulement ${nb} ${mot}(s) sur ${equipe.minimum} minimum. Risque de forfait (amende ${FORFAITS.amende} €, et objectif de la subvention). Pensez à appeler des ${mot}s d'une autre équipe.</div>`
+    : `<div class="alerte ok">${nb} ${mot}s convoqué${equipe.feminin ? "e" : ""}s : l'équipe est complète.</div>`;
 
   const nomEquipe = $("equipe").value.replace(" (démo fictive)", "");
   const message =
@@ -181,7 +257,7 @@ function genererMessage() {
 
 Rendez-vous : ${match.rdv}
 
-Joueurs convoqués (${nb}) :
+${equipe.feminin ? "Joueuses convoquées" : "Joueurs convoqués"} (${nb}) :
 ${convoques.map(n => "- " + n).join("\n")}
 
 Merci de confirmer la présence de votre enfant en répondant OUI ou NON à ce message.
@@ -205,6 +281,7 @@ $("copier").addEventListener("click", async () => {
   setTimeout(() => $("copier").textContent = "Copier le message", 2000);
 });
 
+afficherIndicateur();
 remplirEquipes();
 remplirMatchs();
 </script>
