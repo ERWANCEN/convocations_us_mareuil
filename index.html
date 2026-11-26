@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>US Mareuil · Générateur de convocations</title>
+<style>
+  :root { --vert: #0f6e56; --vert-clair: #e1f5ee; --rouge: #a32d2d; --rouge-clair: #fcebeb; --gris: #5f5e5a; --bord: #d3d1c7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 18px; line-height: 1.5; background: #f7f6f2; color: #222; }
+  header { background: var(--vert); color: #fff; padding: 16px 20px; }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; font-size: 15px; opacity: .9; }
+  main { max-width: 560px; margin: 0 auto; padding: 16px; }
+  section { background: #fff; border: 1px solid var(--bord); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 19px; margin: 0 0 12px; }
+  label.champ { display: block; font-weight: 600; margin: 8px 0 4px; }
+  select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; background: #fff; }
+  .joueur { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid #eee; }
+  .joueur:last-child { border-bottom: none; }
+  .joueur input { width: 26px; height: 26px; accent-color: var(--vert); }
+  .joueur .nom { flex: 1; font-size: 18px; }
+  .joueur .pres { font-size: 15px; color: var(--gris); }
+  .joueur.absent .nom { text-decoration: line-through; color: #999; }
+  .badge { font-size: 13px; padding: 2px 8px; border-radius: 10px; background: #faeeda; color: #633806; }
+  .badge.abs { background: #eee; color: #555; }
+  .alerte { padding: 14px; border-radius: 10px; font-weight: 600; margin-bottom: 12px; }
+  .alerte.ko { background: var(--rouge-clair); color: var(--rouge); border: 1px solid var(--rouge); }
+  .alerte.ok { background: var(--vert-clair); color: var(--vert); border: 1px solid var(--vert); }
+  textarea { width: 100%; min-height: 420px; font-size: 17px; font-family: inherit; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; }
+  .boutons { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  button, a.btn { display: block; width: 100%; text-align: center; font-size: 19px; font-weight: 600; padding: 16px; border-radius: 10px; border: none; cursor: pointer; text-decoration: none; }
+  .principal { background: #25d366; color: #073b1c; }
+  .secondaire { background: #fff; color: var(--vert); border: 2px solid var(--vert) !important; }
+  .aide { font-size: 15px; color: var(--gris); margin: 4px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Convocations US Mareuil</h1>
+  <p>3 étapes : je choisis le match, je vérifie la liste, j'envoie sur WhatsApp.</p>
+</header>
+
+<main>
+  <section>
+    <h2>1. Mon équipe et mon match</h2>
+    <label class="champ" for="equipe">Équipe</label>
+    <select id="equipe"></select>
+    <label class="champ" for="match">Match</label>
+    <select id="match"></select>
+  </section>
+
+  <section>
+    <h2>2. Joueurs proposés</h2>
+    <p class="aide">Classés du plus présent au moins présent aux 8 derniers entraînements. Les absents déclarés sont retirés. Vous pouvez cocher ou décocher.</p>
+    <div id="joueurs"></div>
+  </section>
+
+  <section>
+    <h2>3. Message prêt à envoyer</h2>
+    <div id="alerte"></div>
+    <textarea id="message" aria-label="Message de convocation"></textarea>
+    <div class="boutons">
+      <a id="whatsapp" class="btn principal" target="_blank" rel="noopener">Envoyer sur WhatsApp</a>
+      <button id="copier" class="secondaire">Copier le message</button>
+    </div>
+  </section>
+</main>
+
+<script>
+// ------------------------------------------------------------------
+// DONNÉES (à remplacer plus tard par l'export de l'appli de présences
+// et le calendrier de la ligue). Aucune donnée de santé : on garde
+// seulement "absent", sans le motif.
+// ------------------------------------------------------------------
+const NB_ENTRAINEMENTS = 8;
+const MINIMUM_JOUEURS = 11;
+const MAXIMUM_CONVOQUES = 14;     // 11 titulaires + 3 remplaçants
+const SEUIL_PEU_PRESENT = 0.5;    // moins de 50 % de présence -> badge "peu présent"
+
+const EQUIPES = {
+  "U13": {
+    coach: "Samir",
+    joueurs: [
+      { nom: "Adam",   presences: 8 },
+      { nom: "Bilal",  presences: 6 },
+      { nom: "Chris",  presences: 7 },
+      { nom: "Dylan",  presences: 2, absent: true },
+      { nom: "Enzo",   presences: 5 },
+      { nom: "Farid",  presences: 8 },
+      { nom: "Gabin",  presences: 3 },
+      { nom: "Hugo",   presences: 7 },
+      { nom: "Ilyes",  presences: 6 },
+      { nom: "Jules",  presences: 4, absent: true },
+      { nom: "Kylian", presences: 8 },
+      { nom: "Liam",   presences: 5 },
+      { nom: "Malik",  presences: 1 }
+    ],
+    matchs: [
+      { id: "u13-bondy", libelle: "Samedi 10h · à Bondy", jour: "samedi", heure: "10h", lieu: "Bondy", rdv: "9h au stade" }
+    ]
+  },
+  "U15 (démo fictive)": {
+    coach: "Le coach",
+    joueurs: [
+      { nom: "Noah", presences: 7 }, { nom: "Rayan", presences: 6 },
+      { nom: "Sacha", presences: 2, absent: true }, { nom: "Tom", presences: 5 },
+      { nom: "Yanis", presences: 8 }, { nom: "Wassim", presences: 4 },
+      { nom: "Lucas", presences: 6 }, { nom: "Mehdi", presences: 3 },
+      { nom: "Nathan", presences: 7 }, { nom: "Omar", presences: 5 }
+    ],
+    matchs: [
+      { id: "u15-demo", libelle: "Dimanche 14h · à domicile", jour: "dimanche", heure: "14h", lieu: "Mareuil (domicile)", rdv: "13h au stade" }
+    ]
+  }
+};
+
+// ------------------------------------------------------------------
+// LOGIQUE : de simples règles, pas d'IA (gratuit, fiable, explicable)
+// ------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+let selection = new Set();
+
+function equipeCourante() { return EQUIPES[$("equipe").value]; }
+function matchCourant() { return equipeCourante().matchs.find(m => m.id === $("match").value); }
+
+// Règle 2 : retirer les absents, trier par présence, garder les plus présents
+function proposerJoueurs(equipe) {
+  return equipe.joueurs
+    .filter(j => !j.absent)
+    .sort((a, b) => b.presences - a.presences)
+    .slice(0, MAXIMUM_CONVOQUES)
+    .map(j => j.nom);
+}
+
+function remplirEquipes() {
+  $("equipe").innerHTML = Object.keys(EQUIPES).map(n => `<option>${n}</option>`).join("");
+}
+
+function remplirMatchs() {
+  $("match").innerHTML = equipeCourante().matchs
+    .map(m => `<option value="${m.id}">${m.libelle}</option>`).join("");
+  selection = new Set(proposerJoueurs(equipeCourante()));
+  afficherJoueurs();
+}
+
+function afficherJoueurs() {
+  const equipe = equipeCourante();
+  const tries = [...equipe.joueurs].sort((a, b) => (!!a.absent - !!b.absent) || (b.presences - a.presences));
+  $("joueurs").innerHTML = tries.map(j => {
+    const peu = !j.absent && j.presences / NB_ENTRAINEMENTS < SEUIL_PEU_PRESENT;
+    return `<label class="joueur ${j.absent ? "absent" : ""}">
+      <input type="checkbox" data-nom="${j.nom}" ${selection.has(j.nom) ? "checked" : ""} ${j.absent ? "disabled" : ""}>
+      <span class="nom">${j.nom}</span>
+      ${j.absent ? '<span class="badge abs">absent</span>' : ""}
+      ${peu ? '<span class="badge">peu présent</span>' : ""}
+      <span class="pres">${j.presences}/${NB_ENTRAINEMENTS}</span>
+    </label>`;
+  }).join("");
+  document.querySelectorAll("#joueurs input").forEach(cb => cb.addEventListener("change", () => {
+    cb.checked ? selection.add(cb.dataset.nom) : selection.delete(cb.dataset.nom);
+    genererMessage();
+  }));
+  genererMessage();
+}
+
+// Règle 3 : message WhatsApp + alerte si moins de 11 joueurs
+function genererMessage() {
+  const equipe = equipeCourante();
+  const match = matchCourant();
+  const convoques = equipe.joueurs.filter(j => selection.has(j.nom)).sort((a, b) => b.presences - a.presences).map(j => j.nom);
+  const nb = convoques.length;
+
+  $("alerte").innerHTML = nb < MINIMUM_JOUEURS
+    ? `<div class="alerte ko">Attention : seulement ${nb} joueur(s) sur ${MINIMUM_JOUEURS} minimum. Risque de forfait (amende 50 €). Pensez à appeler des joueurs d'une autre équipe.</div>`
+    : `<div class="alerte ok">${nb} joueurs convoqués : l'équipe est complète.</div>`;
+
+  const nomEquipe = $("equipe").value.replace(" (démo fictive)", "");
+  const message =
+`Convocation ${nomEquipe} : match ${match.jour} à ${match.heure} à ${match.lieu}
+
+Rendez-vous : ${match.rdv}
+
+Joueurs convoqués (${nb}) :
+${convoques.map(n => "- " + n).join("\n")}
+
+Merci de confirmer la présence de votre enfant en répondant OUI ou NON à ce message.
+
+${equipe.coach}`;
+
+  $("message").value = message;
+  majLienWhatsApp();
+}
+
+function majLienWhatsApp() {
+  $("whatsapp").href = "https://wa.me/?text=" + encodeURIComponent($("message").value);
+}
+
+$("equipe").addEventListener("change", remplirMatchs);
+$("match").addEventListener("change", () => { selection = new Set(proposerJoueurs(equipeCourante())); afficherJoueurs(); });
+$("message").addEventListener("input", majLienWhatsApp);
+$("copier").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("message").value); $("copier").textContent = "Message copié !"; }
+  catch { $("message").select(); document.execCommand("copy"); $("copier").textContent = "Message copié !"; }
+  setTimeout(() => $("copier").textContent = "Copier le message", 2000);
+});
+
+remplirEquipes();
+remplirMatchs();
+</script>
+</body>
+</html>
