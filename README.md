@@ -45,6 +45,13 @@ Prototype réalisé dans le cadre d'un projet école (dossier fictif « US Mareu
 18. La section féminine a son propre compteur, car la subvention la suit à part.
 19. Les forfaits déclarés sont gardés sur le téléphone (`localStorage`). Le compteur de départ (`cetteSaison` dans `donnees.js`) reste un chiffre de démonstration.
 
+**Accessibilité et finitions.**
+
+20. Tous les textes font au moins 18 px. Le contraste respecte le niveau WCAG AA (au moins 4,5:1 pour le texte, au moins 3:1 pour les bordures des champs), et c'est vérifié automatiquement sur chaque texte affiché.
+21. Tout se fait au clavier : un contour bleu bien visible montre où l'on est, la touche Échap ferme le panneau de forfait, et le focus n'est jamais perdu après un retrait. Chaque champ a un libellé, et les alertes sont lues par les lecteurs d'écran quand elles changent.
+22. Si une équipe n'a aucun match prévu, la page le dit clairement, au lieu d'afficher une liste et un message vides.
+23. La zone du message est réduite. Le bouton « Voir tout le message » l'affiche en entier, et « Réduire le message » la replie.
+
 Le coach garde la main : il peut cocher ou décocher un joueur et modifier le message avant l'envoi.
 
 ## Choix techniques
