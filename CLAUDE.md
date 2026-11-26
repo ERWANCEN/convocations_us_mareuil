@@ -36,7 +36,7 @@ Le prototype tient en deux fichiers : `index.html` (la page et toute la logique)
 |---|---|---|
 | P1 · Suivre les confirmations | #4 | Boutons Oui / Non / En attente (grisés si le joueur est décoché), alerte rouge / orange / verte selon les réponses, bouton « Générer la relance » |
 | Hors backlog · Gestion de la liste | #4 | Ajouter ou retirer un joueur depuis la page (2 touchers), « Remettre la liste d'origine » |
-| Hors backlog · Absent / disponible | `feature/absent-disponible` | Bouton « Absent » / « Disponible » par prénom dans le volet « Modifier la liste » (1 toucher, sans motif) |
+| Hors backlog · Absent / disponible | #10 | Bouton « Absent » / « Disponible » par prénom dans le volet « Modifier la liste » (1 toucher, sans motif) |
 | P2 · Sortir les données du code | #5 | `donnees.js` avec son mode d'emploi en tête, message d'erreur clair si le fichier manque ou est mal écrit |
 | P3 · Gardien et rotation | #6 | `poste: "gardien"` (alerte orange), `matchsSansConvocation` (badge « à faire jouer » et priorité dès 3) |
 | P4 · Forfaits déclarés par le coach | #7 | « Déclarer un forfait », mini-historique, compteur de la section féminine, projection calculée depuis `debutSaison` |
