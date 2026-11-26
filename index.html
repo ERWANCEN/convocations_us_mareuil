@@ -120,79 +120,20 @@
   </section>
 </main>
 
+<script src="donnees.js"></script>
 <script>
 // ------------------------------------------------------------------
-// DONNÉES (à remplacer plus tard par l'export de l'appli de présences
-// et le calendrier de la ligue). Aucune donnée de santé : on garde
-// seulement "absent", sans le motif.
+// RÉGLAGES. Les équipes, les matchs et les forfaits sont dans donnees.js.
 // ------------------------------------------------------------------
 const NB_ENTRAINEMENTS = 8;
 const MAXIMUM_CONVOQUES = 14;     // 11 titulaires + 3 remplaçants
 const SEUIL_PEU_PRESENT = 0.5;    // moins de 50 % de présence -> badge "peu présent"
 
-// Suivi des forfaits demandé par la subvention.
-// 35 forfaits la saison dernière -> objectif : -50 %. Chiffres de la saison en cours = démo.
-const FORFAITS = {
-  saisonDerniere: 35,
-  objectif: 17,
-  semainesSaison: 40,
-  semainesEcoulees: 12,          // de septembre à fin novembre
-  cetteSaison: 9,                // forfaits déjà subis cette saison (démo)
-  amende: 50
-};
-
-const EQUIPES = {
-  "U13": {
-    coach: "Samir", minimum: 11,
-    joueurs: [
-      { nom: "Adam",   presences: 8 },
-      { nom: "Bilal",  presences: 6 },
-      { nom: "Chris",  presences: 7 },
-      { nom: "Dylan",  presences: 2, absent: true },
-      { nom: "Enzo",   presences: 5 },
-      { nom: "Farid",  presences: 8 },
-      { nom: "Gabin",  presences: 3 },
-      { nom: "Hugo",   presences: 7 },
-      { nom: "Ilyes",  presences: 6 },
-      { nom: "Jules",  presences: 4, absent: true },
-      { nom: "Kylian", presences: 8 },
-      { nom: "Liam",   presences: 5 },
-      { nom: "Malik",  presences: 1 }
-    ],
-    matchs: [
-      { id: "u13-bondy", libelle: "Samedi 10h · à Bondy", jour: "samedi", heure: "10h", lieu: "Bondy", rdv: "9h au stade" }
-    ]
-  },
-  "U15 (démo fictive)": {
-    coach: "Le coach", minimum: 11,
-    joueurs: [
-      { nom: "Noah", presences: 7 }, { nom: "Rayan", presences: 6 },
-      { nom: "Sacha", presences: 2, absent: true }, { nom: "Tom", presences: 5 },
-      { nom: "Yanis", presences: 8 }, { nom: "Wassim", presences: 4 },
-      { nom: "Lucas", presences: 6 }, { nom: "Mehdi", presences: 3 },
-      { nom: "Nathan", presences: 7 }, { nom: "Omar", presences: 5 }
-    ],
-    matchs: [
-      { id: "u15-demo", libelle: "Dimanche 14h · à domicile", jour: "dimanche", heure: "14h", lieu: "Mareuil (domicile)", rdv: "13h au stade" }
-    ]
-  },
-  // Nouvelle section féminine exigée par la subvention (démarrage en janvier)
-  "U15 F · section féminine (démo fictive)": {
-    coach: "La coach", minimum: 11, feminin: true, nouvelle: true,
-    joueurs: [
-      { nom: "Inès", presences: 4 }, { nom: "Léa", presences: 4 },
-      { nom: "Sarah", presences: 3 }, { nom: "Maëlys", presences: 4 },
-      { nom: "Nour", presences: 2 }, { nom: "Chloé", presences: 3 },
-      { nom: "Yasmine", presences: 4 }, { nom: "Emma", presences: 1, absent: true },
-      { nom: "Lina", presences: 2 }, { nom: "Jade", presences: 3 },
-      { nom: "Aya", presences: 4 }, { nom: "Rose", presences: 1 }
-    ],
-    nbSeances: 4,                 // nouvelle équipe : seulement 4 séances découverte
-    matchs: [
-      { id: "u15f-plateau", libelle: "Samedi 17 janvier 14h · plateau à domicile", jour: "samedi 17 janvier", heure: "14h", lieu: "Mareuil (domicile)", rdv: "13h15 au stade" }
-    ]
-  }
-};
+// Si donnees.js est absent ou contient une erreur de frappe, on le dit clairement
+if (typeof EQUIPES === "undefined" || typeof FORFAITS === "undefined") {
+  document.querySelector("main").innerHTML = `<section><div class="alerte ko">Les données du club sont introuvables. Vérifiez que le fichier donnees.js est bien à côté de index.html, et qu'il ne manque pas une virgule, un guillemet ou une accolade dans la dernière modification.</div></section>`;
+  throw new Error("donnees.js absent ou invalide");
+}
 
 // ------------------------------------------------------------------
 // LOGIQUE : de simples règles, pas d'IA (gratuit, fiable, explicable)
@@ -213,53 +154,75 @@ function pluriel(n, mot) { return n > 1 ? mot + "s" : mot; }
 // Les prénoms peuvent maintenant être tapés par le coach : on les échappe avant de les afficher
 function esc(texte) { return String(texte).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
-// Liste des joueurs modifiable par le coach, mémorisée sur le téléphone (une clé par équipe).
-// La liste écrite dans le code reste la liste d'origine.
-const CLE_JOUEURS = "usm-joueurs-";  // + nom de l'équipe
-const JOUEURS_ORIGINE = {};
+// Liste des joueurs modifiable par le coach. On mémorise seulement ses modifications
+// (prénoms ajoutés, prénoms retirés), une clé par équipe. Elles s'appliquent par-dessus
+// donnees.js : un joueur ajouté plus tard dans donnees.js apparaît donc aussi.
+const CLE_MODIFS = "usm-modifs-";    // + nom de l'équipe
+const JOUEURS_ORIGINE = {};          // listes de donnees.js
+const MODIFS = {};                   // nom de l'équipe -> { ajoutes: [prénoms], retires: [prénoms] }
 let aRetirer = null;                 // prénom en attente de confirmation de retrait
+
+const memeNom = (a, b) => a.toLowerCase() === b.toLowerCase();
+const prenomsValides = (liste) => Array.isArray(liste)
+  ? liste.filter(n => typeof n === "string" && n.trim()).map(n => n.trim().slice(0, 30))
+  : [];
 
 function chargerListes() {
   Object.entries(EQUIPES).forEach(([nomEquipe, equipe]) => {
     JOUEURS_ORIGINE[nomEquipe] = equipe.joueurs.map(j => ({ ...j }));
-    try {
-      const liste = JSON.parse(localStorage.getItem(CLE_JOUEURS + nomEquipe));
-      if (!Array.isArray(liste)) return;
-      const vus = new Set();
-      equipe.joueurs = liste
-        .filter(j => j && typeof j.nom === "string" && j.nom.trim() && !vus.has(j.nom.trim().toLowerCase()) && vus.add(j.nom.trim().toLowerCase()))
-        .map(j => ({ nom: j.nom.trim().slice(0, 30), presences: Number.isFinite(j.presences) ? j.presences : 0, absent: j.absent === true, ajoute: j.ajoute === true }));
-    } catch { /* stockage indisponible ou illisible : on garde la liste d'origine */ }
+    let lu = {};
+    try { lu = JSON.parse(localStorage.getItem(CLE_MODIFS + nomEquipe)) || {}; }
+    catch { /* stockage indisponible ou illisible : aucune modification */ }
+    MODIFS[nomEquipe] = { ajoutes: prenomsValides(lu.ajoutes), retires: prenomsValides(lu.retires) };
+    appliquerModifs(nomEquipe);
   });
 }
-function enregistrerListe() {
-  try { localStorage.setItem(CLE_JOUEURS + $("equipe").value, JSON.stringify(equipeCourante().joueurs)); }
+function appliquerModifs(nomEquipe) {
+  const m = MODIFS[nomEquipe];
+  const liste = JOUEURS_ORIGINE[nomEquipe]
+    .filter(j => !m.retires.some(n => memeNom(n, j.nom)))
+    .map(j => ({ ...j }));
+  m.ajoutes.forEach(nom => {
+    if (!liste.some(j => memeNom(j.nom, nom))) liste.push({ nom, presences: 0, absent: false, ajoute: true });
+  });
+  EQUIPES[nomEquipe].joueurs = liste;
+}
+function enregistrerModifs() {
+  try { localStorage.setItem(CLE_MODIFS + $("equipe").value, JSON.stringify(MODIFS[$("equipe").value])); }
   catch { /* stockage indisponible : la modification vaut jusqu'à la fermeture de la page */ }
 }
 function listeModifiee() {
-  return JSON.stringify(equipeCourante().joueurs) !== JSON.stringify(JOUEURS_ORIGINE[$("equipe").value]);
+  const m = MODIFS[$("equipe").value];
+  return m.ajoutes.length > 0 || m.retires.length > 0;
 }
 
 function ajouterJoueur(evenement) {
   evenement.preventDefault();
+  const nomEquipe = $("equipe").value;
   const equipe = equipeCourante();
+  const m = MODIFS[nomEquipe];
   const champ = $("nouveau-joueur");
-  const prenom = champ.value.trim().replace(/\s+/g, " ");
-  if (!prenom) { $("retour-gestion").textContent = "Écrivez un prénom."; return; }
-  if (equipe.joueurs.some(j => j.nom.toLowerCase() === prenom.toLowerCase())) {
-    $("retour-gestion").textContent = `${prenom} est déjà dans la liste.`;
-    return;
-  }
-  equipe.joueurs.push({ nom: prenom, presences: 0, absent: false, ajoute: true });
-  const convoque = selection.size < MAXIMUM_CONVOQUES;
+  const saisi = champ.value.trim().replace(/\s+/g, " ");
+  if (!saisi) { $("retour-gestion").textContent = "Écrivez un prénom."; return; }
+  const existant = equipe.joueurs.find(j => memeNom(j.nom, saisi));
+  if (existant) { $("retour-gestion").textContent = `${existant.nom} est déjà dans la liste.`; return; }
+  // Un joueur de donnees.js retiré par erreur revient avec son historique de présence
+  const origine = JOUEURS_ORIGINE[nomEquipe].find(j => memeNom(j.nom, saisi));
+  if (origine) m.retires = m.retires.filter(n => !memeNom(n, saisi));
+  else m.ajoutes.push(saisi);
+  const prenom = origine ? origine.nom : saisi;
+  appliquerModifs(nomEquipe);
+  const convoque = !(origine && origine.absent) && selection.size < MAXIMUM_CONVOQUES;
   if (convoque) selection.add(prenom);
-  enregistrerListe();
+  enregistrerModifs();
   enregistrerSuivi();
   champ.value = "";
   const e = equipe.feminin ? "e" : "";
-  $("retour-gestion").textContent = convoque
-    ? `${prenom} ajouté${e} et convoqué${e}.`
-    : `${prenom} ajouté${e}. La liste est pleine (${MAXIMUM_CONVOQUES}) : cochez si besoin.`;
+  $("retour-gestion").textContent = origine
+    ? `${prenom} remis${e} dans la liste${convoque ? ` et convoqué${e}` : ""}.`
+    : convoque
+      ? `${prenom} ajouté${e} et convoqué${e}.`
+      : `${prenom} ajouté${e}. La liste est pleine (${MAXIMUM_CONVOQUES}) : cochez si besoin.`;
   afficherJoueurs();
   afficherIndicateur();
 }
@@ -267,22 +230,26 @@ function ajouterJoueur(evenement) {
 // Retrait en 2 touchers (« Retirer » puis « Confirmer »), sans fenêtre du navigateur
 function retirerJoueur(nom) {
   if (aRetirer !== nom) { aRetirer = nom; afficherGestion(); return; }
-  const equipe = equipeCourante();
-  equipe.joueurs = equipe.joueurs.filter(j => j.nom !== nom);
+  const nomEquipe = $("equipe").value;
+  const m = MODIFS[nomEquipe];
+  if (m.ajoutes.some(n => memeNom(n, nom))) m.ajoutes = m.ajoutes.filter(n => !memeNom(n, nom));
+  else m.retires.push(nom);
+  appliquerModifs(nomEquipe);
   selection.delete(nom);
   delete statuts[nom];
   aRetirer = null;
-  enregistrerListe();
+  enregistrerModifs();
   enregistrerSuivi();
-  $("retour-gestion").textContent = `${nom} retiré${equipe.feminin ? "e" : ""} de la liste.`;
+  $("retour-gestion").textContent = `${nom} retiré${equipeCourante().feminin ? "e" : ""} de la liste.`;
   afficherJoueurs();
   afficherIndicateur();
 }
 
 function remettreListe() {
   const nomEquipe = $("equipe").value;
-  EQUIPES[nomEquipe].joueurs = JOUEURS_ORIGINE[nomEquipe].map(j => ({ ...j }));
-  try { localStorage.removeItem(CLE_JOUEURS + nomEquipe); } catch { /* rien à faire */ }
+  MODIFS[nomEquipe] = { ajoutes: [], retires: [] };
+  appliquerModifs(nomEquipe);
+  try { localStorage.removeItem(CLE_MODIFS + nomEquipe); } catch { /* rien à faire */ }
   $("retour-gestion").textContent = "Liste d'origine remise.";
   chargerMatch();
   afficherIndicateur();
