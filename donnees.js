@@ -28,7 +28,8 @@
 //     "U11": {
 //       coach: "Prénom du coach", minimum: 8,
 //       joueurs: [
-//         { nom: "Prénom", presences: 6 },
+//         { nom: "Prénom", presences: 6, poste: "gardien" },
+//         { nom: "Prénom", presences: 5, matchsSansConvocation: 3 },
 //         { nom: "Prénom", presences: 3, absent: true }
 //       ],
 //       matchs: [
@@ -38,6 +39,12 @@
 //
 //   - minimum   : nombre de joueurs en dessous duquel il y a forfait.
 //   - presences : nombre d'entraînements suivis sur les 8 derniers.
+//   - poste: "gardien" (facultatif) : si aucun gardien n'est convoqué,
+//                    la page affiche une alerte orange.
+//   - matchsSansConvocation (facultatif) : nombre de matchs de suite sans
+//                    convocation. À partir de 3, le joueur a le badge
+//                    « à faire jouer » et il est proposé en priorité.
+//                    Remettre à 0 quand il a joué.
 //   - absent: true : joueur indisponible. Ne jamais écrire le motif
 //                    (santé, famille) : seulement « absent ».
 //   - Pour une équipe de filles, ajouter « feminin: true » à côté du coach.
@@ -67,7 +74,7 @@ const EQUIPES = {
   "U13": {
     coach: "Samir", minimum: 11,
     joueurs: [
-      { nom: "Adam",   presences: 8 },
+      { nom: "Adam",   presences: 8, poste: "gardien" },
       { nom: "Bilal",  presences: 6 },
       { nom: "Chris",  presences: 7 },
       { nom: "Dylan",  presences: 2, absent: true },
@@ -79,7 +86,7 @@ const EQUIPES = {
       { nom: "Jules",  presences: 4, absent: true },
       { nom: "Kylian", presences: 8 },
       { nom: "Liam",   presences: 5 },
-      { nom: "Malik",  presences: 1 }
+      { nom: "Malik",  presences: 1, matchsSansConvocation: 3 }
     ],
     matchs: [
       { id: "u13-bondy", libelle: "Samedi 10h · à Bondy", jour: "samedi", heure: "10h", lieu: "Bondy", rdv: "9h au stade" }
