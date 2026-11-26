@@ -5,26 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>US Mareuil · Générateur de convocations</title>
 <style>
-  :root { --vert: #0f6e56; --vert-clair: #e1f5ee; --rouge: #a32d2d; --rouge-clair: #fcebeb; --orange: #854f0b; --orange-clair: #faeeda; --gris: #5f5e5a; --bord: #d3d1c7; }
+  :root { --vert: #0f6e56; --vert-clair: #e1f5ee; --rouge: #a32d2d; --rouge-clair: #fcebeb; --orange: #854f0b; --orange-clair: #faeeda; --gris: #5f5e5a; --bord: #d3d1c7; --bord-champ: #767570; --focus: #1a4fd6; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 18px; line-height: 1.5; background: #f7f6f2; color: #222; }
   header { background: var(--vert); color: #fff; padding: 16px 20px; }
   header h1 { margin: 0; font-size: 22px; }
-  header p { margin: 4px 0 0; font-size: 15px; opacity: .9; }
+  header p { margin: 4px 0 0; font-size: 18px; }
   main { max-width: 560px; margin: 0 auto; padding: 16px; }
   section { background: #fff; border: 1px solid var(--bord); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  h2 { font-size: 19px; margin: 0 0 12px; }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  h3 { font-size: 18px; margin: 16px 0 4px; }
+  /* Clavier : contour bien visible sur l'élément actif (contraste 6,7:1 sur fond blanc) */
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   label.champ { display: block; font-weight: 600; margin: 8px 0 4px; }
   [hidden] { display: none !important; }
-  select, input[type="date"] { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; background: #fff; }
+  select, input[type="date"] { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--bord-champ); border-radius: 8px; background: #fff; color: #222; }
+  select:disabled { background: #f1f0ec; }
   .ligne { border-bottom: 1px solid #eee; }
   .ligne:last-child { border-bottom: none; }
-  .joueur { display: flex; align-items: center; gap: 12px; padding: 10px 4px; }
+  .joueur { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 4px; }
   .joueur input { width: 26px; height: 26px; accent-color: var(--vert); }
   .joueur .nom { flex: 1; font-size: 18px; }
-  .joueur .pres { font-size: 15px; color: var(--gris); }
-  .joueur.absent .nom { text-decoration: line-through; color: #999; }
-  .badge { font-size: 13px; padding: 2px 8px; border-radius: 10px; background: var(--orange-clair); color: #633806; }
+  .joueur .pres { font-size: 18px; color: var(--gris); }
+  .joueur.absent .nom { text-decoration: line-through; color: #6b6a66; }
+  .badge { font-size: 18px; line-height: 1.3; padding: 2px 10px; border-radius: 10px; background: var(--orange-clair); color: #633806; }
   .badge.abs { background: #eee; color: #555; }
   .badge.new { background: #eeedfe; color: #3c3489; }
   .badge.gardien { background: #e6f1fb; color: #0c447c; }
@@ -37,7 +41,7 @@
   .alerte .detail { display: block; font-weight: 400; margin-top: 4px; }
   /* Réponses des parents : 3 gros boutons sous chaque joueur convoqué */
   .statuts { display: flex; gap: 8px; padding: 0 4px 10px; }
-  .statuts button { flex: 1; width: auto; min-height: 48px; padding: 8px 4px; font-size: 18px; background: #fff; color: #222; border: 2px solid var(--bord); }
+  .statuts button { flex: 1; width: auto; min-height: 48px; padding: 8px 4px; font-size: 18px; background: #fff; color: #222; border: 2px solid var(--bord-champ); }
   .statuts button[data-statut="oui"][aria-pressed="true"] { background: var(--vert); color: #fff; border-color: var(--vert); }
   .statuts button[data-statut="non"][aria-pressed="true"] { background: var(--rouge); color: #fff; border-color: var(--rouge); }
   .statuts button[data-statut="attente"][aria-pressed="true"] { background: var(--orange-clair); color: var(--orange); border-color: var(--orange); }
@@ -48,34 +52,36 @@
   details.gestion { margin-top: 12px; border-top: 1px solid var(--bord); padding-top: 4px; }
   details.gestion summary { min-height: 48px; display: flex; align-items: center; font-weight: 600; color: var(--vert); cursor: pointer; }
   .ajout { display: flex; gap: 8px; }
-  .ajout input { flex: 1; min-width: 0; font-size: 18px; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; }
+  .ajout input { flex: 1; min-width: 0; font-size: 18px; padding: 12px; border: 1px solid var(--bord-champ); border-radius: 8px; }
   .ajout button, .gestion-ligne button { width: auto; min-height: 48px; padding: 8px 16px; font-size: 18px; }
   .ajout button { background: var(--vert); color: #fff; }
   .gestion-ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #eee; }
   .retirer { background: #fff; color: var(--rouge); border: 2px solid var(--rouge); }
   .retirer.confirmer { background: var(--rouge); color: #fff; }
   #remettre { margin-top: 12px; }
-  textarea { width: 100%; min-height: 420px; font-size: 17px; font-family: inherit; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; }
+  /* Message : hauteur réduite par défaut, « Voir tout le message » l'affiche en entier */
+  textarea { display: block; width: 100%; height: 200px; resize: vertical; font-size: 18px; font-family: inherit; line-height: 1.5; padding: 12px; border: 1px solid var(--bord-champ); border-radius: 8px; }
+  .lien { background: none; color: var(--vert); text-decoration: underline; min-height: 48px; padding: 8px; margin-top: 4px; }
   .boutons { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
   button, a.btn { display: block; width: 100%; text-align: center; font-size: 19px; font-weight: 600; padding: 16px; border-radius: 10px; border: none; cursor: pointer; text-decoration: none; }
   .principal { background: #25d366; color: #073b1c; }
   .secondaire { background: #fff; color: var(--vert); border: 2px solid var(--vert) !important; }
-  .aide { font-size: 15px; color: var(--gris); margin: 4px 0 0; }
+  .aide { font-size: 18px; color: var(--gris); margin: 4px 0 0; }
   .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .kpi { border: 1px solid var(--bord); border-radius: 10px; padding: 10px 12px; }
   .kpi .val { font-size: 26px; font-weight: 700; }
-  .kpi .lib { font-size: 14px; color: var(--gris); }
+  .kpi .lib { font-size: 18px; line-height: 1.35; color: var(--gris); }
   .kpi.large { grid-column: 1 / -1; }
   .danger { background: var(--rouge); color: #fff; }
   #declarer { margin-top: 12px; }
   #panneau-forfait { margin-top: 12px; padding: 12px; border: 2px solid var(--rouge); border-radius: 10px; }
   .historique { list-style: none; margin: 8px 0 0; padding: 0; }
-  .historique li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 17px; }
+  .historique li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 18px; }
   .historique li:last-child { border-bottom: none; }
   .historique button { width: auto; min-height: 48px; padding: 8px 16px; font-size: 18px; }
   .jauge { height: 14px; background: #eee; border-radius: 7px; overflow: hidden; margin: 12px 0 6px; }
   .jauge div { height: 100%; }
-  .risques { margin: 10px 0 0; padding-left: 20px; font-size: 16px; }
+  .risques { margin: 4px 0 0; padding-left: 20px; font-size: 18px; }
 </style>
 </head>
 <body>
@@ -116,7 +122,7 @@
     <p class="aide" id="aide-joueurs"></p>
     <div id="info-equipe"></div>
     <div id="joueurs"></div>
-    <details class="gestion">
+    <details class="gestion" id="gestion">
       <summary id="titre-gestion">Modifier la liste des joueurs</summary>
       <form id="form-ajout">
         <label class="champ" for="nouveau-joueur">Prénom à ajouter (prénom seulement)</label>
@@ -133,11 +139,15 @@
 
   <section>
     <h2>3. Message prêt à envoyer</h2>
-    <div id="alerte"></div>
-    <textarea id="message" aria-label="Message de convocation"></textarea>
-    <div class="boutons">
+    <div id="alerte" aria-live="polite"></div>
+    <div id="zone-message">
+      <label class="champ" for="message">Texte du message (modifiable avant l'envoi)</label>
+      <textarea id="message"></textarea>
+      <button id="voir-tout" class="lien" type="button" aria-controls="message" aria-expanded="false">Voir tout le message</button>
+    </div>
+    <div class="boutons" id="boutons-envoi">
       <a id="whatsapp" class="btn principal" target="_blank" rel="noopener">Envoyer sur WhatsApp</a>
-      <button id="copier" class="secondaire">Copier le message</button>
+      <button id="copier" class="secondaire" type="button">Copier le message</button>
       <button id="relance" class="secondaire" type="button">Générer la relance</button>
     </div>
   </section>
@@ -171,7 +181,8 @@ const CLE_SUIVI = "usm-suivi-";   // + id du match
 const STATUTS = [["oui", "Oui"], ["non", "Non"], ["attente", "En attente"]];
 
 function equipeCourante() { return EQUIPES[$("equipe").value]; }
-function matchCourant() { return equipeCourante().matchs.find(m => m.id === $("match").value); }
+function matchsDe(equipe) { return Array.isArray(equipe.matchs) ? equipe.matchs : []; }
+function matchCourant() { return matchsDe(equipeCourante()).find(m => m.id === $("match").value); }
 function nbSeances(equipe) { return equipe.nbSeances || NB_ENTRAINEMENTS; }
 function statut(nom) { return statuts[nom] || "attente"; }
 function pluriel(n, mot) { return n > 1 ? mot + "s" : mot; }
@@ -267,6 +278,7 @@ function retirerJoueur(nom) {
   $("retour-gestion").textContent = `${nom} retiré${equipeCourante().feminin ? "e" : ""} de la liste.`;
   afficherJoueurs();
   afficherIndicateur();
+  $("nouveau-joueur").focus();          // le bouton retiré a disparu : on garde le focus dans le volet
 }
 
 function remettreListe() {
@@ -301,6 +313,7 @@ function lireSuivi(idMatch) {
   catch { return {}; }
 }
 function enregistrerSuivi() {
+  if (!matchCourant()) return;
   try { localStorage.setItem(CLE_SUIVI + matchCourant().id, JSON.stringify({ convoques: [...selection], statuts })); }
   catch { /* stockage indisponible : on continue sans mémoire */ }
 }
@@ -411,6 +424,7 @@ function retirerForfait(id) {
   enregistrerForfaits();
   afficherIndicateur();
   if (f) $("retour-forfait").textContent = `Forfait retiré : ${nomCourt(f.equipe)}, ${dateLisible(f.date)}.`;
+  $("declarer").focus();                // le bouton retiré a disparu : on garde le focus dans l'indicateur
 }
 
 // Indicateur forfaits : où en est le club par rapport à l'objectif de la subvention ?
@@ -439,12 +453,12 @@ function afficherIndicateur() {
         ? `Au rythme actuel : ${projection} forfaits en fin de saison. L'objectif de ${f.objectif} (−50 % par rapport à ${f.saisonDerniere}) n'est pas tenu. La subvention est en jeu.`
         : `Au rythme actuel : ${projection} forfaits en fin de saison. L'objectif de ${f.objectif} est tenu.`}
     </div>
-    <strong>Derniers forfaits déclarés :</strong>
+    <h3>Derniers forfaits déclarés</h3>
     ${derniers.length
       ? `<ul class="historique">${derniers.map(x => `<li><span>${esc(nomCourt(x.equipe))} · ${dateLisible(x.date)}</span>
           <button type="button" class="retirer ${forfaitARetirer === x.id ? "confirmer" : ""}" data-id="${esc(x.id)}" aria-label="${forfaitARetirer === x.id ? "Confirmer le retrait du forfait" : "Retirer le forfait"} ${esc(nomCourt(x.equipe))} du ${dateLisible(x.date)}">${forfaitARetirer === x.id ? "Confirmer" : "Retirer"}</button></li>`).join("")}</ul>`
       : `<p class="aide">Aucun pour l'instant.</p>`}
-    <strong>Équipes à risque pour le prochain match :</strong>
+    <h3>Équipes à risque pour le prochain match</h3>
     ${aRisque.length ? `<ul class="risques">${aRisque.map(r => `<li>${r} joueurs disponibles</li>`).join("")}</ul>` : `<p class="aide">Aucune.</p>`}
     <p class="aide">Le compteur inclut ${f.cetteSaison} ${pluriel(f.cetteSaison, "forfait")} d'avant l'outil (chiffre de démonstration). Les forfaits déclarés sont gardés sur ce téléphone.</p>`;
   document.querySelectorAll(".historique .retirer").forEach(b => b.addEventListener("click", () => retirerForfait(b.dataset.id)));
@@ -453,13 +467,30 @@ function afficherIndicateur() {
 }
 
 function remplirEquipes() {
-  $("equipe").innerHTML = Object.keys(EQUIPES).map(n => `<option>${n}</option>`).join("");
+  $("equipe").innerHTML = Object.keys(EQUIPES).map(n => `<option>${esc(n)}</option>`).join("");
 }
 
 function remplirMatchs() {
-  $("match").innerHTML = equipeCourante().matchs
-    .map(m => `<option value="${m.id}">${m.libelle}</option>`).join("");
+  const matchs = matchsDe(equipeCourante());
+  const sansMatch = matchs.length === 0;
+  $("match").disabled = sansMatch;
+  $("match").innerHTML = sansMatch
+    ? `<option value="">Aucun match prévu</option>`
+    : matchs.map(m => `<option value="${esc(m.id)}">${esc(m.libelle)}</option>`).join("");
+  // Équipe sans match : on le dit clairement au lieu d'afficher une liste et un message vides
+  ["joueurs", "gestion", "zone-message", "boutons-envoi"].forEach(id => $(id).hidden = sansMatch);
+  if (sansMatch) { afficherSansMatch(); return; }
   chargerMatch();
+}
+function afficherSansMatch() {
+  const equipe = equipeCourante();
+  selection = new Set();
+  statuts = {};
+  $("titre-joueurs").textContent = equipe.feminin ? "2. Joueuses proposées" : "2. Joueurs proposés";
+  $("aide-joueurs").textContent = "";
+  $("info-equipe").innerHTML = `<div class="alerte info">Aucun match n'est prévu pour l'équipe ${esc(nomCourt($("equipe").value))} pour l'instant. Il n'y a donc personne à convoquer. Quand un match sera ajouté dans le fichier donnees.js (le mode d'emploi est en tête du fichier), il apparaîtra ici.</div>`;
+  $("alerte").innerHTML = `<div class="alerte info">Pas de match : pas de message à envoyer.</div>`;
+  $("message").value = "";
 }
 
 function afficherJoueurs() {
@@ -579,6 +610,20 @@ ${equipe.coach}`;
 
 function majLienWhatsApp() {
   $("whatsapp").href = "https://wa.me/?text=" + encodeURIComponent($("message").value);
+  majHauteurMessage();
+}
+
+// « Voir tout le message » : la zone de texte s'agrandit à la taille du message, ou revient à 200 px.
+// Le bouton est masqué si le message tient déjà dans la zone réduite.
+let messageDeplie = false;
+function majHauteurMessage() {
+  const zone = $("message");
+  zone.style.height = "";
+  const trop = zone.scrollHeight > zone.clientHeight + 2;
+  if (messageDeplie && trop) zone.style.height = (zone.scrollHeight + 4) + "px";
+  $("voir-tout").hidden = !trop;
+  $("voir-tout").textContent = messageDeplie ? "Réduire le message" : "Voir tout le message";
+  $("voir-tout").setAttribute("aria-expanded", String(messageDeplie));
 }
 
 $("equipe").addEventListener("change", () => { $("retour-gestion").textContent = ""; remplirMatchs(); });
@@ -593,6 +638,10 @@ $("relance").addEventListener("click", () => {
   genererMessage();
 });
 $("message").addEventListener("input", majLienWhatsApp);
+$("voir-tout").addEventListener("click", () => { messageDeplie = !messageDeplie; majHauteurMessage(); });
+$("panneau-forfait").addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") { fermerDeclaration(); $("retour-forfait").textContent = "Aucun forfait enregistré."; }
+});
 $("copier").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText($("message").value); $("copier").textContent = "Message copié !"; }
   catch { $("message").select(); document.execCommand("copy"); $("copier").textContent = "Message copié !"; }
