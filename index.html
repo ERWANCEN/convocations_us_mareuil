@@ -15,7 +15,8 @@
   section { background: #fff; border: 1px solid var(--bord); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
   h2 { font-size: 19px; margin: 0 0 12px; }
   label.champ { display: block; font-weight: 600; margin: 8px 0 4px; }
-  select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; background: #fff; }
+  [hidden] { display: none !important; }
+  select, input[type="date"] { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; background: #fff; }
   .ligne { border-bottom: 1px solid #eee; }
   .ligne:last-child { border-bottom: none; }
   .joueur { display: flex; align-items: center; gap: 12px; padding: 10px 4px; }
@@ -54,7 +55,6 @@
   .retirer { background: #fff; color: var(--rouge); border: 2px solid var(--rouge); }
   .retirer.confirmer { background: var(--rouge); color: #fff; }
   #remettre { margin-top: 12px; }
-  #remettre[hidden] { display: none; }
   textarea { width: 100%; min-height: 420px; font-size: 17px; font-family: inherit; padding: 12px; border: 1px solid var(--bord); border-radius: 8px; }
   .boutons { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
   button, a.btn { display: block; width: 100%; text-align: center; font-size: 19px; font-weight: 600; padding: 16px; border-radius: 10px; border: none; cursor: pointer; text-decoration: none; }
@@ -65,6 +65,14 @@
   .kpi { border: 1px solid var(--bord); border-radius: 10px; padding: 10px 12px; }
   .kpi .val { font-size: 26px; font-weight: 700; }
   .kpi .lib { font-size: 14px; color: var(--gris); }
+  .kpi.large { grid-column: 1 / -1; }
+  .danger { background: var(--rouge); color: #fff; }
+  #declarer { margin-top: 12px; }
+  #panneau-forfait { margin-top: 12px; padding: 12px; border: 2px solid var(--rouge); border-radius: 10px; }
+  .historique { list-style: none; margin: 8px 0 0; padding: 0; }
+  .historique li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 17px; }
+  .historique li:last-child { border-bottom: none; }
+  .historique button { width: auto; min-height: 48px; padding: 8px 16px; font-size: 18px; }
   .jauge { height: 14px; background: #eee; border-radius: 7px; overflow: hidden; margin: 12px 0 6px; }
   .jauge div { height: 100%; }
   .risques { margin: 10px 0 0; padding-left: 20px; font-size: 16px; }
@@ -80,6 +88,19 @@
   <section>
     <h2>Indicateur des forfaits (objectif subvention)</h2>
     <div id="indicateur"></div>
+    <button id="declarer" class="secondaire" type="button" aria-expanded="false" aria-controls="panneau-forfait">Déclarer un forfait</button>
+    <div id="panneau-forfait" hidden>
+      <label class="champ" for="forfait-equipe">Équipe</label>
+      <select id="forfait-equipe"></select>
+      <label class="champ" for="forfait-date">Date du match</label>
+      <input id="forfait-date" type="date">
+      <p class="aide">Le forfait sera ajouté au compteur de la saison.</p>
+      <div class="boutons">
+        <button id="confirmer-forfait" class="danger" type="button">Confirmer le forfait</button>
+        <button id="annuler-forfait" class="secondaire" type="button">Annuler</button>
+      </div>
+    </div>
+    <p class="aide" id="retour-forfait" role="status"></p>
   </section>
 
   <section>
@@ -315,30 +336,120 @@ function proposerJoueurs(equipe) {
     .map(j => j.nom);
 }
 
+// ------------------------------------------------------------------
+// FORFAITS DÉCLARÉS PAR LE COACH, mémorisés sur le téléphone.
+// Chaque forfait : { id, equipe, feminin, date: "AAAA-MM-JJ" }.
+// ------------------------------------------------------------------
+const CLE_FORFAITS = "usm-forfaits";
+let forfaits = [];
+let forfaitARetirer = null;          // id en attente de confirmation de retrait
+
+function lireForfaits() {
+  try {
+    const lu = JSON.parse(localStorage.getItem(CLE_FORFAITS));
+    forfaits = Array.isArray(lu)
+      ? lu.filter(x => x && typeof x.equipe === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.date))
+          .map(x => ({ id: String(x.id || x.date + x.equipe), equipe: x.equipe.slice(0, 80), feminin: x.feminin === true, date: x.date }))
+      : [];
+  } catch { forfaits = []; }
+}
+function enregistrerForfaits() {
+  try { localStorage.setItem(CLE_FORFAITS, JSON.stringify(forfaits)); }
+  catch { /* stockage indisponible : le forfait compte jusqu'à la fermeture de la page */ }
+}
+function aujourdhui() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function nomCourt(equipe) { return equipe.replace(" (démo fictive)", ""); }
+function dateLisible(iso) {
+  const [a, m, j] = iso.split("-").map(Number);
+  return new Date(a, m - 1, j).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
+// Semaines écoulées depuis le début de saison (entre 1 et la durée de la saison)
+function semainesEcoulees(f) {
+  if (!f.debutSaison) return f.semainesEcoulees || 1;
+  const [a, m, j] = f.debutSaison.split("-").map(Number);
+  const semaines = Math.floor((Date.now() - new Date(a, m - 1, j)) / (7 * 24 * 3600 * 1000));
+  return Math.min(f.semainesSaison, Math.max(1, semaines));
+}
+
+function ouvrirDeclaration() {
+  $("forfait-equipe").innerHTML = Object.keys(EQUIPES).map(n => `<option>${esc(n)}</option>`).join("");
+  $("forfait-equipe").value = $("equipe").value;     // équipe du match en cours, par défaut
+  $("forfait-date").value = aujourdhui();
+  $("forfait-date").max = aujourdhui();
+  $("panneau-forfait").hidden = false;
+  $("declarer").hidden = true;
+  $("declarer").setAttribute("aria-expanded", "true");
+  $("retour-forfait").textContent = "";
+  $("forfait-equipe").focus();
+}
+function fermerDeclaration() {
+  $("panneau-forfait").hidden = true;
+  $("declarer").hidden = false;
+  $("declarer").setAttribute("aria-expanded", "false");
+  $("declarer").focus();
+}
+function confirmerForfait() {
+  const equipe = $("forfait-equipe").value;
+  const date = $("forfait-date").value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { $("retour-forfait").textContent = "Choisissez la date du match."; return; }
+  if (date > aujourdhui()) { $("retour-forfait").textContent = "La date du match ne peut pas être dans le futur."; return; }
+  forfaits.push({ id: Date.now().toString(36), equipe, feminin: !!(EQUIPES[equipe] && EQUIPES[equipe].feminin), date });
+  enregistrerForfaits();
+  fermerDeclaration();
+  afficherIndicateur();
+  $("retour-forfait").textContent = `Forfait enregistré : ${nomCourt(equipe)}, ${dateLisible(date)}.`;
+}
+// Retrait d'un forfait saisi par erreur : 2 touchers (« Retirer » puis « Confirmer »)
+function retirerForfait(id) {
+  if (forfaitARetirer !== id) { forfaitARetirer = id; afficherIndicateur(); return; }
+  const f = forfaits.find(x => x.id === id);
+  forfaits = forfaits.filter(x => x.id !== id);
+  forfaitARetirer = null;
+  enregistrerForfaits();
+  afficherIndicateur();
+  if (f) $("retour-forfait").textContent = `Forfait retiré : ${nomCourt(f.equipe)}, ${dateLisible(f.date)}.`;
+}
+
 // Indicateur forfaits : où en est le club par rapport à l'objectif de la subvention ?
 function afficherIndicateur() {
   const f = FORFAITS;
-  const projection = Math.round(f.cetteSaison / f.semainesEcoulees * f.semainesSaison);
+  const total = f.cetteSaison + forfaits.length;
+  const feminins = (f.cetteSaisonFeminine || 0) + forfaits.filter(x => x.feminin).length;
+  const semaines = semainesEcoulees(f);
+  const projection = Math.round(total / semaines * f.semainesSaison);
   const enRetard = projection > f.objectif;
-  const pct = Math.min(100, Math.round(f.cetteSaison / f.objectif * 100));
+  const pct = Math.min(100, Math.round(total / f.objectif * 100));
   const aRisque = Object.entries(EQUIPES)
     .filter(([, e]) => e.joueurs.filter(j => !j.absent).length < e.minimum)
-    .map(([nom, e]) => `${nom} : ${e.joueurs.filter(j => !j.absent).length}/${e.minimum}`);
+    .map(([nom, e]) => `${esc(nom)} : ${e.joueurs.filter(j => !j.absent).length}/${e.minimum}`);
+  const derniers = [...forfaits].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0, 5);
 
   $("indicateur").innerHTML = `
     <div class="kpis">
-      <div class="kpi"><div class="val">${f.cetteSaison} / ${f.objectif}</div><div class="lib">forfaits cette saison / objectif max</div></div>
-      <div class="kpi"><div class="val">${f.cetteSaison * f.amende} €</div><div class="lib">d'amendes déjà payées</div></div>
+      <div class="kpi"><div class="val">${total} / ${f.objectif}</div><div class="lib">forfaits cette saison / objectif max</div></div>
+      <div class="kpi"><div class="val">${total * f.amende} €</div><div class="lib">d'amendes déjà payées</div></div>
+      <div class="kpi large"><div class="val">${feminins}</div><div class="lib">${pluriel(feminins, "forfait")} de la section féminine (suivi à part pour la subvention)</div></div>
     </div>
-    <div class="jauge" aria-label="Forfaits utilisés par rapport à l'objectif"><div style="width:${pct}%;background:${enRetard ? "var(--rouge)" : "var(--vert)"}"></div></div>
+    <div class="jauge" role="img" aria-label="${total} forfaits sur ${f.objectif} au maximum"><div style="width:${pct}%;background:${enRetard ? "var(--rouge)" : "var(--vert)"}"></div></div>
     <div class="alerte ${enRetard ? "ko" : "ok"}">
       ${enRetard
         ? `Au rythme actuel : ${projection} forfaits en fin de saison. L'objectif de ${f.objectif} (−50 % par rapport à ${f.saisonDerniere}) n'est pas tenu. La subvention est en jeu.`
         : `Au rythme actuel : ${projection} forfaits en fin de saison. L'objectif de ${f.objectif} est tenu.`}
     </div>
+    <strong>Derniers forfaits déclarés :</strong>
+    ${derniers.length
+      ? `<ul class="historique">${derniers.map(x => `<li><span>${esc(nomCourt(x.equipe))} · ${dateLisible(x.date)}</span>
+          <button type="button" class="retirer ${forfaitARetirer === x.id ? "confirmer" : ""}" data-id="${esc(x.id)}" aria-label="${forfaitARetirer === x.id ? "Confirmer le retrait du forfait" : "Retirer le forfait"} ${esc(nomCourt(x.equipe))} du ${dateLisible(x.date)}">${forfaitARetirer === x.id ? "Confirmer" : "Retirer"}</button></li>`).join("")}</ul>`
+      : `<p class="aide">Aucun pour l'instant.</p>`}
     <strong>Équipes à risque pour le prochain match :</strong>
     ${aRisque.length ? `<ul class="risques">${aRisque.map(r => `<li>${r} joueurs disponibles</li>`).join("")}</ul>` : `<p class="aide">Aucune.</p>`}
-    <p class="aide">Chiffres de la saison en cours : démonstration.</p>`;
+    <p class="aide">Le compteur inclut ${f.cetteSaison} ${pluriel(f.cetteSaison, "forfait")} d'avant l'outil (chiffre de démonstration). Les forfaits déclarés sont gardés sur ce téléphone.</p>`;
+  document.querySelectorAll(".historique .retirer").forEach(b => b.addEventListener("click", () => retirerForfait(b.dataset.id)));
+  const aConfirmer = document.querySelector(".historique .confirmer");
+  if (aConfirmer) aConfirmer.focus();
 }
 
 function remplirEquipes() {
@@ -474,6 +585,9 @@ $("equipe").addEventListener("change", () => { $("retour-gestion").textContent =
 $("form-ajout").addEventListener("submit", ajouterJoueur);
 $("remettre").addEventListener("click", remettreListe);
 $("match").addEventListener("change", chargerMatch);
+$("declarer").addEventListener("click", ouvrirDeclaration);
+$("annuler-forfait").addEventListener("click", () => { fermerDeclaration(); $("retour-forfait").textContent = "Aucun forfait enregistré."; });
+$("confirmer-forfait").addEventListener("click", confirmerForfait);
 $("relance").addEventListener("click", () => {
   modeMessage = modeMessage === "relance" ? "convocation" : "relance";
   genererMessage();
@@ -486,6 +600,7 @@ $("copier").addEventListener("click", async () => {
 });
 
 chargerListes();
+lireForfaits();
 afficherIndicateur();
 remplirEquipes();
 remplirMatchs();

@@ -59,13 +59,16 @@
 // ==================================================================
 
 // Suivi des forfaits demandé par la subvention.
-// 35 forfaits la saison dernière -> objectif : -50 %. Chiffres de la saison en cours = démo.
+// 35 forfaits la saison dernière -> objectif : -50 %.
+// Les forfaits de l'année se déclarent avec le bouton « Déclarer un forfait »
+// de la page. Ici, on n'écrit que ceux d'avant l'outil (chiffres de démo).
 const FORFAITS = {
   saisonDerniere: 35,
   objectif: 17,
   semainesSaison: 40,
-  semainesEcoulees: 12,          // de septembre à fin novembre
-  cetteSaison: 9,                // forfaits déjà subis cette saison (démo)
+  debutSaison: "2026-09-01",     // année-mois-jour : sert à calculer la projection
+  cetteSaison: 9,                // forfaits d'avant l'outil, toutes équipes (démo)
+  cetteSaisonFeminine: 0,        // dont section féminine (elle démarre en janvier)
   amende: 50
 };
 
