@@ -29,8 +29,9 @@ Prototype réalisé dans le cadre d'un projet école (dossier fictif « US Mareu
 **Gestion de la liste des joueurs.**
 
 10. Sous la liste, « Modifier la liste des joueurs » (replié par défaut) permet d'ajouter un joueur (prénom seulement) ou d'en retirer un. Le retrait se fait en deux touchers : « Retirer », puis « Confirmer ».
+    Chaque prénom a aussi un bouton « Absent » (« Absente » pour la section féminine). D'un seul toucher, le joueur sort de la convocation et ses réponses pour le match sont effacées. Le bouton devient alors « Disponible », qui le remet dans la liste et le convoque s'il reste de la place. Jamais de motif : seulement « absent ». Un joueur noté absent dans `donnees.js` peut ainsi être rendu disponible depuis la page.
 11. Un joueur ajouté est convoqué d'office (dans la limite de 14) et porte le badge « nouveau » plutôt que « peu présent ».
-12. Seules les modifications du coach (prénoms ajoutés ou retirés) sont gardées sur le téléphone, une clé par équipe. Elles s'appliquent par-dessus `donnees.js` : un joueur ajouté plus tard dans ce fichier apparaît aussi. Un joueur du fichier retiré par erreur, puis rajouté, retrouve son historique. Le bouton « Remettre la liste d'origine » efface ces modifications.
+12. Seules les modifications du coach (prénoms ajoutés, retirés, marqués absents ou de nouveau disponibles) sont gardées sur le téléphone, une clé par équipe. Elles s'appliquent par-dessus `donnees.js` : un joueur ajouté plus tard dans ce fichier apparaît aussi. Un joueur du fichier retiré par erreur, puis rajouté, retrouve son historique. Le bouton « Remettre la liste d'origine » efface ces modifications.
 
 **Gardien et rotation.**
 
@@ -79,7 +80,7 @@ L'équipe U13 reprend les données du dossier ; les équipes U15 sont des démos
 - Les réponses des parents sont gardées sur le téléphone du coach uniquement. Elles ne sont pas partagées avec un autre appareil ni avec la secrétaire.
 - Le coach reporte lui-même les réponses reçues sur WhatsApp : l'outil ne lit pas les messages.
 - La liste modifiée par un coach reste sur son téléphone : elle n'est pas partagée avec le club.
-- Un joueur ajouté n'a pas d'historique de présence (0 entraînement) : il ne peut pas être marqué absent depuis la page.
+- Un joueur ajouté depuis la page n'a pas d'historique de présence (0 entraînement).
 - Les équipes et les matchs se modifient à la main dans `donnees.js` : il faut un ordinateur, et une faute de frappe bloque la page (avec un message qui l'explique).
 - Le compteur `matchsSansConvocation` et le poste de gardien se mettent à jour à la main dans `donnees.js` : la page ne compte pas encore les matchs joués.
 - Les forfaits déclarés restent sur le téléphone qui les a saisis : il n'y a pas de total partagé entre coachs. Pour un compteur fiable, une seule personne (la secrétaire, par exemple) devrait les déclarer. Un vrai total partagé demanderait un serveur.
